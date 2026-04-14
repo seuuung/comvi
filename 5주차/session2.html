@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4장 지역 특징 검출 - 2차시</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- MathJax for rendering formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <script src="js/navbar.js?v=1.1"></script>
+
+    <header class="hero">
+        <div class="hero-content">
+            <span class="badge">제 5주차 / 4장</span>
+            <h1>Moravec Corner Detection</h1>
+            <p>모라벡 알고리즘을 이용한 지역 특징(코너) 검출 원리와 SSD(Sum of Squared Difference) 연산 가시화</p>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- Component 1: Feature Matching (New) -->
+        <section id="sim-section-1" class="card glass">
+            <h2>시뮬레이션 1: 지역 특징 기반 대응점 찾기 (Feature Matching)</h2>
+            <div class="content-block">
+                <div class="description-content">
+                    <div class="theory-box">
+                        <h3>[수업 내용 요약] 코너를 이용한 객체 매칭의 원리</h3>
+                        <p>지역 특징점(코너)들은 물체가 이동해도 다른 점들보다 그 고유한 특징이 구별되기 쉽습니다. 본 시뮬레이션에서는 우선 <strong>3x3 윈도우</strong>를
+                            사용하여 코너를 추출하고, 추출된 각 코너들의 중심으로부터 <strong>11x11 주변 영역(Local Patch)</strong>의 SSD를 비교하여 매칭을
+                            수행합니다.</p>
+                        <p>두 영상 간 패치들의 SSD가 가장 낮게(차이가 적게) 나오는 코너 쌍이 바로 서로 동일한 위치일 확률이 높은 <strong>대응점(Correspondence
+                                Point)</strong>이 됩니다.</p>
+                    </div>
+                </div>
+
+                <div class="interactive-panel split" style="flex-direction: column;">
+                    <div class="controls-row" style="margin-bottom: 1rem; width: 100%; display: flex; gap: 1rem;">
+                        <button id="btnCreateBoxes" class="btn btn-secondary">1. 영상 초기화</button>
+                        <button id="btnFindCorners" class="btn btn-secondary" disabled>2. 양쪽 영상 코너 위치 추출</button>
+                        <button id="btnMatchPoints" class="btn btn-primary" style="background-color: #10b981;"
+                            disabled>3. 대응점 SSD 매칭</button>
+                        <button id="btnRansac" class="btn btn-primary" style="background-color: #3b82f6;" disabled>4.
+                            RANSAC 이상치 제거</button>
+                        <button id="btnStitch" class="btn btn-primary" style="background-color: #8b5cf6;" disabled>5.
+                            파노라마 이미지 합성</button>
+                    </div>
+                    <div class="canvas-labels"
+                        style="display: flex; width: 100%; max-width: 1100px; justify-content: space-around; margin-bottom: 5px; font-weight: 600; color: #94a3b8;">
+                        <span>[ 영상 A : left.jpg ]</span>
+                        <span>[ 영상 B : right.jpg ]</span>
+                    </div>
+                    <div id="ransacFilters"
+                        style="display: none; width: 100%; max-width: 1100px; justify-content: center; gap: 1.5rem; margin-bottom: 10px;">
+                        <label
+                            style="color: #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="ransacFilter" value="all" checked> 전체 보기 (All)
+                        </label>
+                        <label
+                            style="color: #10b981; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="ransacFilter" value="inliers"> 인라이어만 보기 (Inliers)
+                        </label>
+                        <label
+                            style="color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="ransacFilter" value="outliers"> 아웃라이어만 보기 (Outliers)
+                        </label>
+                    </div>
+                    <div class="canvas-wrapper"
+                        style="width: 100%; display: flex; justify-content: center; position: relative;">
+                        <canvas id="matchCanvas" width="1100" height="450"
+                            style="width: 100%; max-width: 1100px; height: auto; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);"></canvas>
+                        <!-- Labels or icons could be placed in the gap if needed -->
+                    </div>
+
+                    <!-- New: Stitching Result Area -->
+                    <div id="stitchResultArea"
+                        style="margin-top: 2rem; width: 100%; display: none; flex-direction: column; align-items: center;">
+                        <div class="canvas-wrapper"
+                            style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.3); max-width: 900px;">
+                            <canvas id="stitchCanvas" width="900" height="300"
+                                style="width: 100%; max-width: 900px; height: auto;"></canvas>
+                            <div id="overlapInfo"
+                                style="margin-top: 15px; font-size: 1.1rem; color: #10b981; font-weight: 600; text-align: center;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Component 2: SSD Window Search -->
+        <section id="sim-section-2" class="card glass">
+            <h2>시뮬레이션 2: SSD 연산 및 방향성 탐색 원리 (코너 판별 기초)</h2>
+            <div class="content-block">
+                <div class="description-content">
+                    <div class="theory-box">
+                        <h3>[수업 내용 요약] 코너 가능성(\(C\)) 판별 원리</h3>
+                        <p>모라벡(Moravec) 알고리즘은 픽셀의 상, 하, 좌, 우 4방향으로 <strong>3x3 윈도우</strong>를 한 픽셀씩 이동시키면서 원래 영상과의
+                            <strong>제곱차의 합(SSD, Sum of
+                                Squared Difference)</strong>을 구합니다.
+                        </p>
+                        <ul>
+                            <li>SSD 수학적 모델: $$ S(u,v) = \sum_{x,y} w(x,y) [I(x+u, y+v) - I(x,y)]^2 $$</li>
+                            <li><strong>특징 가능성 값(\(C\)) 계산</strong>: $$ C = \min(S(0, 1), S(0, -1), S(1, 0), S(-1, 0)) $$
+                            </li>
+                            <li><strong>에지(Edge)</strong>: 선을 따라 이동할 때는 변화가 없으므로 하나의 방향에만 SSD 값이 0으로 나타납니다.</li>
+                            <li><strong>평면(Flat)</strong>: 전후좌우 이동해도 밝기 변화가 없어 모든 방향의 SSD가 0에 가깝습니다.</li>
+                            <li><strong>코너(Corner)</strong>: <strong>모든 방향</strong>에서 높은 SSD 값을 보입니다. 따라서 위 식과 같이 방향별
+                                SSD 중 가장 낮은 최솟값이 특징 가능성 값 <strong>\(C\)</strong> 가 됩니다.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="interactive-panel split" style="display: flex; gap: 2rem;">
+                    <div class="canvas-wrapper flexible" style="flex: 1; align-items: center;">
+                        <canvas id="ssdCanvas" width="400" height="400"></canvas>
+                    </div>
+                    <div class="chart-wrapper flexible"
+                        style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1rem;">
+                        <div style="font-weight: 600; text-align: center; margin-bottom: 0.5rem; color: #f0f0f0;">4 방향
+                            SSD 측정 결과 (Window Shift)</div>
+                        <div id="barChartContainer"
+                            style="display: flex; align-items: flex-start; justify-content: center; gap: 1.2rem; height: 220px; padding-top: 10px;">
+                            <!-- Bars will be generated via JS -->
+                        </div>
+                        <div id="cValueDisplay"
+                            style="margin-top: 2rem; padding: 1.5rem; background: rgba(50, 200, 100, 0.15); border-left: 4px solid #32c864; border-radius: 8px;">
+                            <strong style="color: #32c864; font-size: 1.2rem;">해당 점의 특징 가능성 값 (\(C\)) : </strong> <br>
+                            <span style="font-size: 2rem; font-weight: 800; display: inline-block; margin-top: 0.5rem;"
+                                id="cScore">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+
+    </main>
+
+    <footer>
+        <p>Built for GitHub Pages | 고급영상처리론</p>
+    </footer>
+
+    <script src="js/session2.js"></script>
+</body>
+
+</html>

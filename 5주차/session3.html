@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4장 지역 특징 검출(2) - 3차시</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- MathJax -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <script src="js/navbar.js?v=1.1"></script>
+
+    <header class="hero">
+        <div class="hero-content">
+            <span class="badge">제 5주차 / 4장</span>
+            <h1>지역 특징 검출 (2)</h1>
+            <p>해리스 코너 검출, SUSAN 알고리즘, 비최대 억제(NMS) 위치찾기를 실제 알고리즘으로 시뮬레이션합니다.</p>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- ============================================================= -->
+        <!-- 시뮬레이션 1: 해리스 코너 검출기 (Harris Corner Detector) -->
+        <!-- ============================================================= -->
+        <section id="sim-section-1" class="card glass">
+            <div class="card-header">
+                <h2>1. 해리스 코너 검출기 (Harris Corner Detector)</h2>
+                <div class="theory-box">
+                    <h3>[수업 내용 요약] 모라벡의 한계와 해리스의 개선</h3>
+                    <ul>
+                        <li><strong>모라벡의 한계:</strong> 동서남북 4방향만 조사(등방성 비충족), 잡음에 대한 대처 방안 없음</li>
+                        <li><strong>해리스의 접근:</strong> 테일러 확장을 통해 연속적인 방향에 대해 분석하며, <strong>가우시안 가중치</strong>로 잡음에 대처합니다.
+                        </li>
+                        <li>SSD를 테일러 확장하면 <strong>2차 모멘트 행렬(Auto-correlation Matrix)</strong> \(\mathbf{A}\)로 정리됩니다:
+                            <div style="text-align:center; padding:10px 0;">
+                                $$\mathbf{A} = \sum_{(x,y) \in W} w(x,y) \begin{bmatrix} I_x^2 & I_x I_y \\ I_x I_y &
+                                I_y^2 \end{bmatrix}$$
+                            </div>
+                        </li>
+                        <li><strong>고유값 분석:</strong>
+                            <ul>
+                                <li>\(\lambda_1, \lambda_2\) 모두 작음 → <strong>평면 (Flat)</strong></li>
+                                <li>하나만 큼 → <strong>에지 (Edge)</strong></li>
+                                <li>둘 다 큼 → <strong>코너 (Corner)</strong> ✓</li>
+                            </ul>
+                        </li>
+                        <li style="margin-bottom: 1.5rem;"><strong>코너 응답 함수 (특징 가능성 값):</strong>
+                            <div
+                                style="text-align:center; padding:15px 0; background: rgba(255,255,255,0.03); border-radius: 8px; margin: 10px 0;">
+                                $$C = \det(\mathbf{A}) - k \times \text{trace}(\mathbf{A})^2 = (pq - r^2) - k(p + q)^2$$
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--accent-primary); text-align: center; font-style: italic; margin-bottom: 10px;">
+                                \(p = \sum I_x^2, \quad q = \sum I_y^2, \quad r = \sum I_x I_y\)
+                            </div>
+                        </li>
+                        <li style="margin-bottom: 1.5rem; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 15px;">
+                            <strong style="color: var(--accent-secondary);"><i class="fas fa-info-circle"></i> 참고: LoG
+                                (Laplacian of Gaussian)</strong>
+                            <div style="text-align:center; padding:12px 0;">
+                                $$C = \nabla^2 = \text{trace}(\mathbf{H}) = d_{yy}(\sigma) + d_{xx}(\sigma)$$
+                            </div>
+                        </li>
+                        <li><strong>검출 임계치 (수업 자료):</strong> 일반적으로 정규화된 응답 값 <strong>\(C > 0.02\)</strong>(Slide 10)인
+                            지점을 특징점으로 판정합니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 컨트롤 패널 복구 -->
+            <div class="controls mode-controls"
+                style="align-items: center; border:none; padding-bottom:0; flex-wrap: wrap;">
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1.5rem;">
+                    <label>프리셋:</label>
+                    <select id="harris-preset" class="select-control">
+                        <option value="shapes">도형</option>
+                        <option value="noise_shapes">도형 (노이즈)</option>
+                        <option value="checker">체커보드</option>
+                        <option value="rotated_checker">45도 회전 체커보드</option>
+                        <option value="building">건물</option>
+                    </select>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                    <label>\(k\) 값:</label>
+                    <input type="range" id="harris-k" min="1" max="15" value="4" style="width:100px;">
+                    <span id="harris-k-val" style="width:3.5ch; text-align:right; font-family:monospace;">0.04</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                    <label>임계값:</label>
+                    <input type="range" id="harris-threshold" min="1" max="100" value="30" style="width:100px;">
+                    <span id="harris-threshold-val"
+                        style="width:3ch; text-align:right; font-family:monospace;">30</span>%
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                    <label>가우시안 \(\sigma\):</label>
+                    <input type="range" id="harris-sigma" min="5" max="30" value="14" style="width:100px;">
+                    <span id="harris-sigma-val" style="width:3ch; text-align:right; font-family:monospace;">1.4</span>
+                </div>
+                <button class="btn btn-primary" id="harris-run-btn" style="margin-left: auto;">검출 실행</button>
+            </div>
+
+            <!-- 파라미터 가이드 (상단 배치) -->
+            <div class="glass"
+                style="margin-bottom: 1rem; padding: 1rem; border-radius: 12px; background: rgba(255, 255, 255, 0.03);">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+                    <div
+                        style="background: rgba(0,0,0,0.2); padding: 0.8rem; border-radius: 8px; border-left: 3px solid var(--accent-primary);">
+                        <strong style="display: block; margin-bottom: 0.3rem; color: #fff; font-size: 0.8rem;">\(k\) 값
+                            (Harris)</strong>
+                        <p style="margin: 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted);">
+                            응답 함수 \( C = \det(\mathbf{A}) - k \cdot \text{Tr}(\mathbf{A})^2 \)의 상수입니다. 값이 작을수록 코너에
+                            민감합니다.
+                        </p>
+                    </div>
+                    <div
+                        style="background: rgba(0,0,0,0.2); padding: 0.8rem; border-radius: 8px; border-left: 3px solid #ffcc00;">
+                        <strong style="display: block; margin-bottom: 0.3rem; color: #fff; font-size: 0.8rem;">임계값
+                            (Threshold)</strong>
+                        <p style="margin: 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted);">
+                            유효한 코너 기준값입니다. 값이 높을수록 엄격하게 검출하여 노이즈를 억제합니다.
+                        </p>
+                    </div>
+                    <div
+                        style="background: rgba(0,0,0,0.2); padding: 0.8rem; border-radius: 8px; border-left: 3px solid #00ffcc;">
+                        <strong style="display: block; margin-bottom: 0.3rem; color: #fff; font-size: 0.8rem;">가우시안
+                            \(\sigma\)</strong>
+                        <p style="margin: 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted);">
+                            미분 시 적용할 스무딩 크기입니다. 값이 클수록 더 큰 스케일의 코너를 안정적으로 찾습니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="simulation-area"
+                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; align-items: start; width: 100%; max-width: 1000px; margin: 0 auto 0.75rem auto; box-sizing: border-box;">
+                <!-- 1열: 입력 영상 -->
+                <div class="canvas-container"
+                    style="padding: 1rem; display: flex; flex-direction: column; align-items: center;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.6rem; width: 100%; text-align: center;">입력 영상 & 코너
+                        검출</h3>
+                    <canvas id="harris-canvas" width="400" height="400"
+                        style="width: 100%; aspect-ratio: 1 / 1; display: block; margin-bottom: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);"></canvas>
+                    <div class="legend" id="harris-legend" style="font-size: 0.75rem;">프리셋 선택 후 [검출 실행]</div>
+                </div>
+
+                <!-- 2열: 고유값 분포 -->
+                <div class="canvas-container"
+                    style="padding: 1rem; display: flex; flex-direction: column; align-items: center;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.6rem; width: 100%; text-align: center;">고유값 분포
+                        (\(\lambda_1, \lambda_2\))</h3>
+                    <canvas id="harris-eigen-canvas" width="400" height="400"
+                        style="width: 100%; aspect-ratio: 1 / 1; display: block; margin-bottom: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);"></canvas>
+                    <div class="legend" style="font-size: 0.75rem; white-space: nowrap;">파란:평면 | 노랑:에지 | 빨강:코너</div>
+                </div>
+
+                <!-- 3열: 히트맵 -->
+                <div class="canvas-container"
+                    style="padding: 1rem; display: flex; flex-direction: column; align-items: center;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.6rem; width: 100%; text-align: center;">코너 응답 (R)
+                        히트맵</h3>
+                    <canvas id="harris-response-canvas" width="400" height="400"
+                        style="width: 100%; aspect-ratio: 1 / 1; display: block; margin-bottom: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);"></canvas>
+                    <div class="legend" style="font-size: 0.75rem;">밝을수록 높은 \(R\)값</div>
+                </div>
+
+                <!-- 하단 전체: 검출 통계 (슬림한 중앙 정렬 바) -->
+                <div class="stats-panel glass"
+                    style="grid-column: 1 / span 3; width: 100%; padding: 0.35rem 1rem; box-sizing: border-box; display: flex; align-items: center; justify-content: center; min-height: auto; margin-top: 0.2rem; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 1rem; width: auto;">
+                        <span
+                            style="font-size: 0.85rem; font-weight: 700; color: var(--accent-primary); white-space: nowrap;">📊
+                            검출 통계</span>
+                        <div style="width: 1px; height: 12px; background: rgba(255,255,255,0.2);"></div>
+                        <p class="status-msg" id="harris-status"
+                            style="color:var(--text-main); margin: 0; font-size: 0.8rem; font-weight: 500; background: none; border: none; padding: 0; box-shadow: none;">
+                            프리셋을 선택하고 검출을 시작하세요.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- 시뮬레이션 2: SUSAN 알고리즘 -->
+        <!-- ============================================================= -->
+        <section id="sim-section-2" class="card glass">
+            <div class="card-header">
+                <h2>2. SUSAN 알고리즘 (Smallest Univalue Segment Assimilating Nucleus)</h2>
+                <div class="theory-box">
+                    <h3>[수업 내용 요약] SUSAN의 원리</h3>
+                    <ul>
+                        <li><strong>USAN(Univalue Segment Assimilating Nucleus):</strong> 원형 마스크 내에서 중심 픽셀과 <strong>밝기값이
+                                유사한 점</strong>들로
+                            구성된 영역입니다.</li>
+                        <li>반지름 약 3.4 화소의 원형 마스크 → 전체 <strong>37개 픽셀</strong>로 구성 (등방성 마스크)</li>
+                        <li>유사도 판별 함수:
+                            <div style="text-align:center; padding:10px 0;">
+                                $$c(\vec{r}, \vec{r}_0) = e^{-\left(\frac{I(\vec{r}) - I(\vec{r}_0)}{t}\right)^6}$$
+                            </div>
+                        </li>
+                        <li><strong>USAN 크기 기반 판정 (Slide 13):</strong>
+                            <div style="text-align:center; padding:10px 0;">
+                                $$C = \begin{cases} g - \text{usan\_area}(r_0), & \text{usan\_area}(r_0) \le t_2 \\ 0, &
+                                \text{그렇지 않으면} \end{cases}$$
+                            </div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">
+                                * 여기서 \(g\)는 USAN 영역의 배경 대비 기여도(일반적으로 \(0.75 \times \text{Mask Area}\))를 의미합니다.
+                            </p>
+                        </li>
+                        <li>부동소수점 연산 없이 마스크 연산만으로 구현 가능 → <strong>하드웨어 구현에 적합</strong></li>
+                    </ul>
+                </div>
+                <div class="controls mode-controls" style="align-items: center; border:none; padding-bottom:0;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                        <label>밝기 임계값 (t):</label>
+                        <input type="range" id="susan-threshold" min="5" max="80" value="25" style="width:150px;">
+                        <span id="susan-threshold-val"
+                            style="width:3ch; text-align:right; font-family:monospace;">25</span>
+                    </div>
+                    <button class="btn btn-secondary" id="susan-detect-btn">전체 코너 검출 실행</button>
+                    <button class="btn btn-secondary" id="susan-reset-btn">초기화</button>
+                </div>
+            </div>
+
+            <div class="simulation-area" style="align-items: flex-start;">
+                <div class="canvas-container" style="flex: 1; padding: 1rem;">
+                    <h3>SUSAN 마스크 탐색 (Hover)</h3>
+                    <canvas id="susan-canvas" width="500" height="500"></canvas>
+                </div>
+                <!-- 우측 분석 결과 전용 패널 -->
+                <div class="stats-panel glass" style="flex: 0 0 320px; width: 320px; margin-top: 0;">
+                    <h3>USAN 분석</h3>
+                    <div class="susan-info-panel-content">
+                        <!-- 원형 마스크 미니 뷰 -->
+                        <div style="text-align:center; margin-bottom:1.5rem;">
+                            <canvas id="susan-mask-view" width="160" height="160"
+                                style="border-radius:50%; border:2px solid var(--primary); margin: 0 auto;"></canvas>
+                        </div>
+                        <!-- USAN 게이지 바 -->
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span style="font-size:0.85rem; color:var(--text-muted);">USAN 비율</span>
+                                <span id="susan-ratio-text"
+                                    style="font-weight:700; font-family:'JetBrains Mono', monospace; color:var(--primary);">0%</span>
+                            </div>
+                            <div class="progress-bar-bg" style="height: 12px;">
+                                <div class="progress-bar-fill" id="susan-ratio-bar" style="width:0%;"></div>
+                            </div>
+                        </div>
+                        <!-- 판정 결과 -->
+                        <div id="susan-verdict" class="verdict-box"
+                            style="margin-bottom:1.5rem; padding: 0.8rem; font-size: 0.9rem;">
+                            마우스를 격자 위에 올려보세요
+                        </div>
+                        <!-- 수치 표시 -->
+                        <div class="stats-panel"
+                            style="padding: 0; background: none; border: none; width: 100%; flex: none;">
+                            <ul style="border:none; padding:0; background:none;">
+                                <li style="font-size: 0.95rem;">
+                                    <strong>USAN 크기 (<i>n</i>)</strong>
+                                    <span id="susan-similar-count" style="color:var(--text-main);">0</span>
+                                </li>
+                                <li style="font-size: 0.95rem;">
+                                    <strong>중심 밝기</strong>
+                                    <span id="susan-center-val" style="color:var(--text-main);">-</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- 시뮬레이션 3: 위치찾기 - 비최대 억제 (NMS) -->
+        <!-- ============================================================= -->
+        <section id="sim-section-3" class="card glass">
+            <div class="card-header">
+                <h2>3. 위치찾기 알고리즘 (Non-Maximum Suppression)</h2>
+                <div class="theory-box">
+                    <h3>[수업 내용 요약] 위치찾기(Localization)의 중요성</h3>
+                    <ul>
+                        <li><strong>특징점 밀집 현상:</strong> 코너 응답 함수(\(R\)) 값이 큰 점들이 특정 지역에 밀집되어 나타납니다 (Slide 16).</li>
+                        <li><strong>비최대 억제 (Non-Maximum Suppression):</strong> 지역 범위 내에서 가장 큰 값만 남기고 나머지는 제거하여,
+                            <strong>대표점</strong> 하나만 선택하는 과정입니다.
+                        </li>
+                        <li><strong>NMS 과정:</strong>
+                            <ol>
+                                <li>각 픽셀의 코너 응답값(\(R\)) 계산</li>
+                                <li>지역 윈도우 내에서 최대값인 픽셀만 보존</li>
+                                <li>나머지는 제거하여 특징점을 간결하게 추출</li>
+                            </ol>
+                        </li>
+                    </ul>
+                </div>
+                <p><strong>좌측(원본)</strong>은 임계값만 적용한 결과, <strong>우측(NMS 적용)</strong>은 비최대 억제를 적용한 결과입니다.<br>
+                    <strong>NMS 윈도우 크기</strong>를 조절하여 대표점 선택이 어떻게 달라지는지 비교해보세요.
+                </p>
+                <div class="controls mode-controls"
+                    style="align-items: center; border:none; padding-bottom:0; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1.5rem;">
+                        <label>프리셋:</label>
+                        <select id="nms-preset" class="select-control">
+                            <option value="shapes">도형</option>
+                            <option value="noise_shapes">도형 (노이즈)</option>
+                            <option value="checker">체커보드</option>
+                            <option value="rotated_checker">45도 회전 체커보드</option>
+                            <option value="building">건물</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                        <label>NMS 윈도우 크기:</label>
+                        <input type="range" id="nms-window" min="3" max="31" value="9" step="2" style="width:150px;">
+                        <span id="nms-window-val" style="width:4ch; text-align:right; font-family:monospace;">9×9</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                        <label>임계값:</label>
+                        <input type="range" id="nms-threshold" min="1" max="100" value="20" style="width:100px;">
+                        <span id="nms-threshold-val"
+                            style="width:3ch; text-align:right; font-family:monospace;">20</span>%
+                    </div>
+                    <button class="btn btn-primary" id="nms-run-btn">비교 실행</button>
+                </div>
+            </div>
+
+            <div class="simulation-area"
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; align-items: start; width: 100%; max-width: 760px; margin: 0 auto 0.75rem auto; box-sizing: border-box;">
+                <!-- 1열: NMS 전 -->
+                <div class="canvas-container"
+                    style="padding: 0.8rem; display: flex; flex-direction: column; align-items: center;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem; width: 100%; text-align: center;">임계값만 적용 (NMS
+                        전)</h3>
+                    <canvas id="nms-before-canvas" width="400" height="400"
+                        style="width: 100%; max-width: 320px; aspect-ratio: 1 / 1; display: block; margin-bottom: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);"></canvas>
+                    <div class="legend" style="font-size: 0.7rem;">검출된 코너: <span id="nms-before-count"
+                            style="color:#ef4444; font-weight:700;">0</span>개</div>
+                </div>
+
+                <!-- 2열: NMS 후 -->
+                <div class="canvas-container"
+                    style="padding: 0.8rem; display: flex; flex-direction: column; align-items: center;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem; width: 100%; text-align: center;">NMS 적용 후</h3>
+                    <canvas id="nms-after-canvas" width="400" height="400"
+                        style="width: 100%; max-width: 320px; aspect-ratio: 1 / 1; display: block; margin-bottom: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);"></canvas>
+                    <div class="legend" style="font-size: 0.7rem;">검출된 코너: <span id="nms-after-count"
+                            style="color:#10b981; font-weight:700;">0</span>개</div>
+                </div>
+
+                <!-- 하단 전체: 비교 분석 (슬림한 중앙 정렬 바) -->
+                <div class="stats-panel glass"
+                    style="grid-column: 1 / span 2; width: 100%; padding: 0.35rem 1rem; box-sizing: border-box; display: flex; align-items: center; justify-content: center; min-height: auto; margin-top: 0.2rem; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 1rem; width: auto;">
+                        <span
+                            style="font-size: 0.85rem; font-weight: 700; color: var(--accent-primary); white-space: nowrap;">📊
+                            비교 분석</span>
+                        <div style="width: 1px; height: 12px; background: rgba(255,255,255,0.2);"></div>
+                        <p class="status-msg" id="nms-status"
+                            style="color:var(--text-main); margin: 0; font-size: 0.8rem; font-weight: 500;">[비교 실행] 버튼을
+                            클릭하세요.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Built for GitHub Pages | 고급영상처리론</p>
+    </footer>
+
+    <script src="js/session3.js"></script>
+</body>
+
+</html>
