@@ -65,7 +65,8 @@ function initEdgeLinking() {
         ctx.fillStyle = "#111827";
         ctx.fillRect(0, 0, width, height);
 
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        // 1. 그리드 렌더링 (더 선명하게 수정)
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
         ctx.lineWidth = 1;
         for (let r = 0; r <= rows; r++) {
             const y = padding + r * cellH;
@@ -108,17 +109,31 @@ function initEdgeLinking() {
             ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            // 방향 화살표
-            const arrowLen = 18;
+            // 방향 화살표 (삼각형 머리 추가)
+            const arrowLen = 20;
             const rad = (p.ang * Math.PI) / 180;
             const dx = Math.cos(rad) * arrowLen;
             const dy = -Math.sin(rad) * arrowLen;
 
             ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(p.x - dx/2, p.y - dy/2); ctx.lineTo(p.x + dx/2, p.y + dy/2); ctx.stroke();
             ctx.fillStyle = "#fff";
-            ctx.beginPath(); ctx.arc(p.x + dx/2, p.y + dy/2, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.lineWidth = 2;
+            
+            // 화살표 몸통
+            ctx.beginPath();
+            ctx.moveTo(p.x - dx/2.5, p.y - dy/2.5);
+            ctx.lineTo(p.x + dx/2.5, p.y + dy/2.5);
+            ctx.stroke();
+
+            // 화살표 머리 (삼각형)
+            const headLen = 6;
+            const angle = Math.atan2(dy, dx);
+            ctx.beginPath();
+            ctx.moveTo(p.x + dx/2.5, p.y + dy/2.5);
+            ctx.lineTo(p.x + dx/2.5 - headLen * Math.cos(angle - Math.PI / 6), p.y + dy/2.5 - headLen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(p.x + dx/2.5 - headLen * Math.cos(angle + Math.PI / 6), p.y + dy/2.5 - headLen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
 
             // 정보 텍스트 배경 박스 (가독성 증대)
             ctx.fillStyle = "rgba(0, 0, 0, 0.5)";

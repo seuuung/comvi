@@ -18,11 +18,16 @@ function init() {
     const navHtml = `
         <nav class="top-nav">
             <div class="nav-container">
-                ${navItems.map(item => `
-                    <a href="${item.href}" class="nav-item ${currentFile === item.href ? 'active' : ''}">
-                        ${item.text}
-                    </a>
-                `).join('')}
+                <a href="../index.html" class="nav-item main-nav-item">
+                    <span class="home-icon">🏠</span> 메인화면
+                </a>
+                <div class="nav-center-group">
+                    ${navItems.map(item => `
+                        <a href="${item.href}" class="nav-item ${currentFile === item.href ? 'active' : ''}">
+                            ${item.text}
+                        </a>
+                    `).join('')}
+                </div>
             </div>
         </nav>
     `;

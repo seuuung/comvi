@@ -56,12 +56,38 @@ p {
 }
 
 .nav-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     display: flex;
     justify-content: center;
-    gap: 1rem;
+    align-items: center;
     padding: 0 2rem;
+    position: relative;
+}
+
+.main-nav-item {
+    position: absolute;
+    left: 2rem;
+    font-weight: 600 !important;
+    color: var(--primary) !important;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.main-nav-item:hover {
+    background: rgba(59, 130, 246, 0.1) !important;
+    border-radius: 8px;
+}
+
+.home-icon {
+    font-size: 1.1rem;
+}
+
+.nav-center-group {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .nav-item {
