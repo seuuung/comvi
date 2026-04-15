@@ -119,12 +119,13 @@
                         <p><strong>최종 목표:</strong> 미분 연산 없이 단순히 밝기 비교(USAN 영역 크기)만으로 <strong>노이즈에 강하고 빠른</strong> 특징점
                             검출을 가능하게 하는 것입니다.</p>
                         <hr style="margin: 10px 0; border: none; border-top: 1px dashed rgba(255,255,255,0.2);">
-                        <p><strong>원리:</strong></p>
+                        <p><strong>USAN (Univalue Segment Assimilating Nucleus):</strong></p>
+                        <p>원형 마스크를 씌웠을 때, <strong>중심점과 명암값이 같은 점</strong>으로 구성된 영역</p>
+                        <p style="margin-top: 0.5rem;"><strong>USAN의 크기에 따른 판정:</strong></p>
                         <ul>
-                            <li><strong>USAN:</strong> 원형 마스크 내에서 중심과 밝기가 유사한 영역입니다.</li>
-                            <li><strong>판정:</strong> USAN 영역의 크기가 <strong>가장 작아지는(Smallest)</strong> 곳이 코너나 에지가 됩니다.
-                            </li>
-                            <li><strong>유사도 함수:</strong> \(c(\vec{r}, \vec{r}_0) = e^{-( (I(r)-I(r_0))/t )^6}\)</li>
+                            <li><strong>약 50% 미만:</strong> corner candidate (예: 0 ~ 40%)</li>
+                            <li><strong>약 50%:</strong> edge candidate (예: 40 ~ 60%)</li>
+                            <li><strong>약 100%:</strong> 균일 영역 (예: 80 ~ 100%)</li>
                         </ul>
                     </div>
                 </div>
@@ -143,30 +144,43 @@
                             <h3>SUSAN 마스크 탐색 (Hover)</h3>
                             <canvas id="susan-canvas" width="500" height="500"></canvas>
                         </div>
-                        <div class="stats-panel glass" style="flex: 0 0 320px;">
-                            <h3>USAN 분석</h3>
-                            <div style="text-align:center; margin-bottom:1.5rem;">
-                                <canvas id="susan-mask-view" width="160" height="160"
-                                    style="border-radius:50%; border:2px solid var(--primary); margin: 0 auto; display: block;"></canvas>
+                        <div class="stats-panel glass" style="flex: 0 0 380px; padding: 1.5rem;">
+                            <h3 style="text-align:center; margin-bottom:1rem; font-size:1.15rem;">USAN 분석</h3>
+                            <!-- 마스크 미리보기 (확대) -->
+                            <div style="text-align:center; margin-bottom:1.2rem;">
+                                <canvas id="susan-mask-view" width="200" height="200"
+                                    style="border-radius:50%; border:3px solid var(--primary); margin: 0 auto; display: block; box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);"></canvas>
+                                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">원형 마스크 (7×7)</p>
                             </div>
-                            <div style="margin-bottom:1.5rem;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                    <span style="font-size:0.85rem; color:var(--text-muted);">USAN 비율</span>
-                                    <span id="susan-ratio-text" style="font-weight:700; color:var(--primary);">0%</span>
+                            <!-- USAN 비율 -->
+                            <div style="margin-bottom:1.2rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                                    <span style="font-size:0.9rem; color:var(--text-muted); font-weight:500;">USAN 비율</span>
+                                    <span id="susan-ratio-text" style="font-weight:800; font-size:1.4rem; color:var(--primary); font-family:'JetBrains Mono', monospace;">0%</span>
                                 </div>
-                                <div class="progress-bar-bg" style="height: 12px;">
-                                    <div class="progress-bar-fill" id="susan-ratio-bar" style="width:0%;"></div>
+                                <div class="progress-bar-bg" style="height: 18px; border-radius: 9px;">
+                                    <div class="progress-bar-fill" id="susan-ratio-bar" style="width:0%; border-radius: 9px; transition: width 0.15s, background 0.3s;"></div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin-top:4px;">
+                                    <span style="font-size:0.7rem; color:#ef4444;">코너</span>
+                                    <span style="font-size:0.7rem; color:#eab308;">에지</span>
+                                    <span style="font-size:0.7rem; color:#10b981;">균일</span>
                                 </div>
                             </div>
-                            <div id="susan-verdict" class="verdict-box" style="margin-bottom:1.5rem;">마우스를 올려보세요</div>
-                            <div class="stats-panel"
-                                style="padding: 0; background: none; border: none; width: 100%; flex: none;">
-                                <ul style="border:none; padding:0; background:none;">
-                                    <li style="font-size: 0.95rem;"><strong>USAN 크기 (n)</strong> <span
-                                            id="susan-similar-count" style="color:var(--text-main);">0</span></li>
-                                    <li style="font-size: 0.95rem;"><strong>중심 밝기</strong> <span id="susan-center-val"
-                                            style="color:var(--text-main);">-</span></li>
-                                </ul>
+                            <!-- 판정 결과 -->
+                            <div id="susan-verdict" class="verdict-box" style="margin-bottom:1.2rem; font-size:1.05rem; padding:1rem;">마우스를 올려보세요</div>
+                            <!-- 상세 수치 -->
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                                <div style="background:rgba(0,0,0,0.2); border-radius:10px; padding:0.8rem; text-align:center; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">USAN 크기 (n)</div>
+                                    <div id="susan-similar-count" style="font-size:1.3rem; font-weight:700; color:var(--primary); font-family:'JetBrains Mono', monospace;">0</div>
+                                    <div style="font-size:0.65rem; color:var(--text-muted);">/ 37 픽셀</div>
+                                </div>
+                                <div style="background:rgba(0,0,0,0.2); border-radius:10px; padding:0.8rem; text-align:center; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">중심 밝기</div>
+                                    <div id="susan-center-val" style="font-size:1.3rem; font-weight:700; color:var(--text-main); font-family:'JetBrains Mono', monospace;">-</div>
+                                    <div style="font-size:0.65rem; color:var(--text-muted);">/ 255</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -220,13 +234,17 @@
                         style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; justify-items: center; justify-content: center;">
                         <div class="canvas-container" style="flex: none; width: 560px;">
                             <h3 style="font-size:0.9rem;">임계값만 적용 (NMS 전)</h3>
-                            <canvas id="nms-before-canvas" width="560" height="560" style="width:100%; border-radius: 4px; cursor:none;"></canvas>
-                            <div class="legend">코너: <span id="nms-before-count" style="color:#ef4444; font-weight:700;">0</span>개</div>
+                            <canvas id="nms-before-canvas" width="560" height="560"
+                                style="width:100%; border-radius: 4px; cursor:none;"></canvas>
+                            <div class="legend">코너: <span id="nms-before-count"
+                                    style="color:#ef4444; font-weight:700;">0</span>개</div>
                         </div>
                         <div class="canvas-container" style="flex: none; width: 560px;">
                             <h3 style="font-size:0.9rem;">NMS 적용 후</h3>
-                            <canvas id="nms-after-canvas" width="560" height="560" style="width:100%; border-radius: 4px; cursor:none;"></canvas>
-                            <div class="legend">코너: <span id="nms-after-count" style="color:#10b981; font-weight:700;">0</span>개</div>
+                            <canvas id="nms-after-canvas" width="560" height="560"
+                                style="width:100%; border-radius: 4px; cursor:none;"></canvas>
+                            <div class="legend">코너: <span id="nms-after-count"
+                                    style="color:#10b981; font-weight:700;">0</span>개</div>
                         </div>
                     </div>
                     <!-- 상태 메시지 최적화 -->

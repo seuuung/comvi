@@ -757,15 +757,20 @@ document.addEventListener('DOMContentLoaded', () => {
         susanMaskCtx.arc(mw / 2, mh / 2, mw / 2, 0, Math.PI * 2);
         susanMaskCtx.fill();
 
-        const cellW = mw / 9;
-        const cellH = mh / 9;
+        // 7×7 그리드로 변경 (마스크 범위 -3~+3)
+        const gridSize = 7;
+        const cellW = mw / gridSize;
+        const cellH = mh / gridSize;
         const centerVal = susanGrid[cy]?.[cx] ?? 0;
 
         SUSAN_MASK.forEach(([dx, dy]) => {
             const nx = cx + dx;
             const ny = cy + dy;
-            const px = (dx + 4) * cellW;
-            const py = (dy + 4) * cellH;
+            // 오프셋: dx,dy는 -3~+3 → 0~6
+            const gx = dx + 3;
+            const gy = dy + 3;
+            const px = gx * cellW;
+            const py = gy * cellH;
 
             if (nx < 0 || nx >= SUSAN_GRID_SIZE || ny < 0 || ny >= SUSAN_GRID_SIZE) {
                 susanMaskCtx.fillStyle = '#1e293b';
@@ -781,17 +786,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dx === 0 && dy === 0) {
                 susanMaskCtx.fillStyle = '#3b82f6';
             } else if (isSimilar) {
-                susanMaskCtx.fillStyle = '#10b981';
+                susanMaskCtx.fillStyle = `rgba(16, 185, 129, ${0.4 + cVal * 0.6})`;
             } else {
-                susanMaskCtx.fillStyle = '#ef4444';
+                susanMaskCtx.fillStyle = `rgba(239, 68, 68, ${0.4 + (1 - cVal) * 0.4})`;
             }
             susanMaskCtx.fillRect(px + 0.5, py + 0.5, cellW - 1, cellH - 1);
 
-            // 밝기값 표시
+            // 밝기값 표시 (그림자로 가독성 확보)
+            susanMaskCtx.save();
+            susanMaskCtx.shadowColor = 'rgba(0,0,0,0.8)';
+            susanMaskCtx.shadowBlur = 3;
             susanMaskCtx.fillStyle = '#fff';
-            susanMaskCtx.font = '9px monospace';
+            susanMaskCtx.font = 'bold 13px JetBrains Mono, monospace';
             susanMaskCtx.textAlign = 'center';
-            susanMaskCtx.fillText(val, px + cellW / 2, py + cellH / 2 + 3);
+            susanMaskCtx.fillText(val, px + cellW / 2, py + cellH / 2 + 5);
+            susanMaskCtx.restore();
         });
 
         susanMaskCtx.textAlign = 'start';
