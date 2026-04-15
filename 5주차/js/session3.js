@@ -182,6 +182,26 @@ document.addEventListener('DOMContentLoaded', () => {
         tempCanvas.getContext('2d').putImageData(imageData, 0, 0);
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(tempCanvas, 0, 0, canvasW, canvasH);
+
+        // 격자선 표시
+        const cellW = canvasW / w;
+        const cellH = canvasH / h;
+        if (cellW >= 4) { // 셀이 충분히 클 때만 격자 표시
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.25)';
+            ctx.lineWidth = 0.5;
+            for (let x = 0; x <= w; x++) {
+                ctx.beginPath();
+                ctx.moveTo(x * cellW, 0);
+                ctx.lineTo(x * cellW, canvasH);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= h; y++) {
+                ctx.beginPath();
+                ctx.moveTo(0, y * cellH);
+                ctx.lineTo(canvasW, y * cellH);
+                ctx.stroke();
+            }
+        }
     }
 
 
@@ -350,7 +370,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const l2 = (trace - sqrtDisc) / 2;
 
                 // 산점도용 (너무 많으면 샘플링)
-                if ((y % 3 === 0 && x % 3 === 0) || Math.abs(r) > maxR * 0.01) {
+                const step = Math.max(1, Math.floor(w / 30));
+                if ((y % step === 0 && x % step === 0) || Math.abs(r) > maxR * 0.01) {
                     eigenValues.push({ x, y, l1: Math.abs(l1), l2: Math.abs(l2), r });
                 }
             }
@@ -388,9 +409,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * 고유값 산점도 그리기
+     * 고유값 산점도 그리기 (R=0 결정경계 포함)
      */
-    function drawEigenScatter(ctx, eigenValues) {
+    function drawEigenScatter(ctx, eigenValues, highlightIdx = -1) {
         const cw = ctx.canvas.width;
         const ch = ctx.canvas.height;
         ctx.clearRect(0, 0, cw, ch);
@@ -399,44 +420,39 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = '#0a0f1a';
         ctx.fillRect(0, 0, cw, ch);
 
-        // 축 레이블
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1;
+        const margin = 75; // 마진 대폭 확대
+        const plotW = cw - margin - 15;
+        const plotH = ch - margin - 20;
+
+        // 축
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(40, ch - 40);
-        ctx.lineTo(cw - 10, ch - 40);
-        ctx.moveTo(40, ch - 40);
-        ctx.lineTo(40, 10);
+        ctx.moveTo(margin, ch - margin);
+        ctx.lineTo(cw - 10, ch - margin);
+        ctx.moveTo(margin, ch - margin);
+        ctx.lineTo(margin, 10);
         ctx.stroke();
 
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '12px Inter, Noto Sans KR';
-        ctx.fillText('λ₁', cw - 25, ch - 25);
-        ctx.fillText('λ₂', 15, 20);
+        ctx.fillStyle = '#f8fafc'; // 최상단 밝은 색
+        ctx.font = 'bold 22px Inter, Noto Sans KR'; // 더 크게
+        ctx.textAlign = 'center';
+        ctx.fillText('λ₁', margin + plotW / 2, ch - 12);
+        ctx.save();
+        ctx.translate(22, ch / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('λ₂', 0, 0);
+        ctx.restore();
+        ctx.textAlign = 'start';
 
-        // 영역 표시
-        // 코너 영역 (우상단)
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
-        ctx.fillRect(cw * 0.5, 10, cw * 0.48, ch * 0.45);
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
-        ctx.font = 'bold 11px Inter';
-        ctx.fillText('코너', cw * 0.65, 30);
-
-        // 에지 영역 (우하단 + 좌상단)
-        ctx.fillStyle = 'rgba(234, 179, 8, 0.06)';
-        ctx.fillRect(cw * 0.5, ch * 0.5, cw * 0.48, ch * 0.38);
-        ctx.fillRect(40, 10, cw * 0.35, ch * 0.45);
-        ctx.fillStyle = 'rgba(234, 179, 8, 0.5)';
-        ctx.fillText('에지', cw * 0.65, ch * 0.65);
-        ctx.fillText('에지', 80, 30);
-
-        // 평면 영역 (좌하단)
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.06)';
-        ctx.fillRect(40, ch * 0.5, cw * 0.35, ch * 0.38);
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.5)';
-        ctx.fillText('평면', 80, ch * 0.65);
-
-        if (eigenValues.length === 0) return;
+        if (eigenValues.length === 0) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '16px Inter, Noto Sans KR';
+            ctx.textAlign = 'center';
+            ctx.fillText('검출 실행 후 표시됩니다', cw / 2, ch / 2);
+            ctx.textAlign = 'start';
+            return;
+        }
 
         // 스케일 계산
         let maxL = 0;
@@ -446,47 +462,96 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (maxL === 0) maxL = 1;
 
-        const plotW = cw - 60;
-        const plotH = ch - 60;
+        // 영역 범례 박스 (우측 상단에 작게 배치)
+        const legX = cw - 105;
+        const legY = 20;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+        ctx.beginPath();
+        ctx.roundRect(legX, legY, 95, 75, 6);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.stroke();
+
+        ctx.font = 'bold 11px Inter, Noto Sans KR';
+        const drawLegItem = (txt, color, y) => {
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.arc(legX + 12, y - 4, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillText(txt, legX + 24, y);
+        };
+        drawLegItem('코너 영역', 'rgba(239, 68, 68, 0.8)', legY + 20);
+        drawLegItem('에지 영역', 'rgba(234, 179, 8, 0.7)', legY + 40);
+        drawLegItem('평면 영역', 'rgba(59, 130, 246, 0.6)', legY + 60);
+
+        // 대각선 λ₁ = λ₂
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(margin, ch - margin);
+        ctx.lineTo(margin + Math.min(plotW, plotH), (ch - margin) - Math.min(plotW, plotH));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.font = '10px Inter';
+        const diagEnd = Math.min(plotW, plotH);
+        ctx.fillText('λ₁=λ₂', margin + diagEnd - 30, (ch - margin) - diagEnd + 15);
 
         // 점 그리기
-        for (const ev of eigenValues) {
-            const px = 40 + (ev.l1 / maxL) * plotW;
-            const py = (ch - 40) - (ev.l2 / maxL) * plotH;
+        for (let i = 0; i < eigenValues.length; i++) {
+            const ev = eigenValues[i];
+            const px = margin + (ev.l1 / maxL) * plotW;
+            const py = (ch - margin) - (ev.l2 / maxL) * plotH;
 
-            // 분류에 따른 색상
+            // R에 따른 분류
+            let color;
+            if (ev.r > 0) {
+                const intensity = Math.min(1, Math.abs(ev.r) / (maxL * maxL * 0.01));
+                color = `rgba(239, 68, 68, ${0.3 + intensity * 0.5})`;
+            } else if (ev.r < 0) {
+                color = 'rgba(234, 179, 8, 0.35)';
+            } else {
+                color = 'rgba(59, 130, 246, 0.3)';
+            }
+            // 평면: 둘 다 작음
             const minL = Math.min(ev.l1, ev.l2);
             const maxLv = Math.max(ev.l1, ev.l2);
-            const ratio = maxL > 0 ? minL / maxL : 0;
-
-            let color;
-            if (minL < maxL * 0.02 && maxLv < maxL * 0.02) {
-                color = 'rgba(59, 130, 246, 0.4)';  // 평면
-            } else if (minL < maxL * 0.05 && maxLv > maxL * 0.05) {
-                color = 'rgba(234, 179, 8, 0.5)';   // 에지
-            } else if (minL > maxL * 0.05 && maxLv > maxL * 0.05) {
-                color = 'rgba(239, 68, 68, 0.6)';   // 코너
-            } else {
-                color = 'rgba(148, 163, 184, 0.3)';
+            if (maxLv < maxL * 0.03) {
+                color = 'rgba(59, 130, 246, 0.35)';
             }
 
             ctx.beginPath();
-            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.arc(px, py, i === highlightIdx ? 6 : 2, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
+
+            if (i === highlightIdx) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         }
 
-        // 대각선 보조선 (λ₁ = λ₂)
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(40, ch - 40);
-        ctx.lineTo(cw - 10, 10);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '10px Inter';
-        ctx.fillText('λ₁ = λ₂', cw - 60, 40);
+        // 축 눈금
+        ctx.fillStyle = '#cbd5e1'; // 더 밝은 색상
+        ctx.font = '11px monospace'; // 더 큰 폰트
+        ctx.textAlign = 'center';
+        for (let i = 0; i <= 4; i++) {
+            const val = (maxL * i / 4);
+            const label = val > 1000 ? (val / 1000).toFixed(0) + 'k' : val.toFixed(0);
+            const xPos = margin + (i / 4) * plotW;
+            ctx.fillText(label, xPos, ch - margin + 18);
+            const yPos = (ch - margin) - (i / 4) * plotH;
+            ctx.fillText(label, margin - 12, yPos + 4);
+            // 그리드
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.beginPath();
+            ctx.moveTo(xPos, ch - margin);
+            ctx.lineTo(xPos, 10);
+            ctx.moveTo(margin, yPos);
+            ctx.lineTo(cw - 10, yPos);
+            ctx.stroke();
+        }
+        ctx.textAlign = 'start';
     }
 
     /**
@@ -562,10 +627,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const sigma = parseInt(harrisSigmaSlider.value) / 10;
             const threshPercent = parseInt(harrisThresholdSlider.value);
 
-            const SIZE = 200; // 내부 연산용 크기 (성능)
+            const SIZE = 400; // 해상도 상향
             const grayImg = generatePreset(preset, SIZE);
 
             const result = harrisCornerDetection(grayImg, k, sigma, threshPercent);
+
+            // 결과 캐시 저장 (hover 연동용)
+            harrisCache = {
+                result,
+                grayImg,
+                SIZE
+            };
 
             // 원본 영상 + 코너 표시
             drawGrayImage(harrisCtx, grayImg, harrisCanvas.width, harrisCanvas.height);
@@ -598,9 +670,136 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
     });
 
+    // 해리스 결과 캐시
+    let harrisCache = null;
+
+    // 이미지 캔버스 hover → 산점도 연동
+    harrisCanvas.addEventListener('mousemove', (e) => {
+        if (!harrisCache) return;
+        const rect = harrisCanvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+        const imgX = Math.floor(mx * harrisCache.SIZE);
+        const imgY = Math.floor(my * harrisCache.SIZE);
+
+        // 가장 가까운 eigenValue 찾기
+        const evs = harrisCache.result.eigenValues;
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let i = 0; i < evs.length; i++) {
+            const d = Math.abs(evs[i].x - imgX) + Math.abs(evs[i].y - imgY);
+            if (d < bestDist) {
+                bestDist = d;
+                bestIdx = i;
+            }
+        }
+
+        if (bestDist > 5) bestIdx = -1;
+
+        // 이미지 다시 그리기 + 십자선
+        drawGrayImage(harrisCtx, harrisCache.grayImg, harrisCanvas.width, harrisCanvas.height);
+        const scaleX = harrisCanvas.width / harrisCache.SIZE;
+        const scaleY = harrisCanvas.height / harrisCache.SIZE;
+
+        harrisCache.result.corners.forEach(pt => {
+            harrisCtx.beginPath();
+            harrisCtx.arc(pt.x * scaleX, pt.y * scaleY, 5, 0, Math.PI * 2);
+            harrisCtx.strokeStyle = '#ef4444';
+            harrisCtx.lineWidth = 2.5;
+            harrisCtx.stroke();
+            harrisCtx.beginPath();
+            harrisCtx.arc(pt.x * scaleX, pt.y * scaleY, 2, 0, Math.PI * 2);
+            harrisCtx.fillStyle = '#fff';
+            harrisCtx.fill();
+        });
+
+        if (bestIdx >= 0) {
+            const ev = evs[bestIdx];
+            const cx = ev.x * scaleX;
+            const cy = ev.y * scaleY;
+
+            // 십자선
+            harrisCtx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+            harrisCtx.lineWidth = 1;
+            harrisCtx.setLineDash([4, 3]);
+            harrisCtx.beginPath();
+            harrisCtx.moveTo(cx, 0);
+            harrisCtx.lineTo(cx, harrisCanvas.height);
+            harrisCtx.moveTo(0, cy);
+            harrisCtx.lineTo(harrisCanvas.width, cy);
+            harrisCtx.stroke();
+            harrisCtx.setLineDash([]);
+
+            // 포인트 강조
+            harrisCtx.beginPath();
+            harrisCtx.arc(cx, cy, 8, 0, Math.PI * 2);
+            harrisCtx.strokeStyle = '#fbbf24';
+            harrisCtx.lineWidth = 2;
+            harrisCtx.stroke();
+
+            // 정보 말풍선 크기 및 위치 조정
+            const rNorm = harrisCache.result.maxR > 0 ? (ev.r / harrisCache.result.maxR * 100).toFixed(1) : '0';
+            const label = ev.r > 0 ? '코너' : (Math.max(ev.l1, ev.l2) > Math.min(ev.l1, ev.l2) * 3 ? '에지' : '평면');
+            const labelColor = ev.r > 0 ? '#ef4444' : (label === '에지' ? '#eab308' : '#3b82f6');
+
+            const boxW = 260; // 200 -> 260
+            const boxH = 85;  // 60 -> 85
+            let tx = cx + 15;
+            let ty = cy - boxH - 10;
+            if (tx + boxW > harrisCanvas.width) tx = cx - boxW - 15;
+            if (ty < 5) ty = cy + 15;
+
+            harrisCtx.fillStyle = 'rgba(10, 15, 26, 0.95)';
+            harrisCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+            harrisCtx.lineWidth = 2;
+            harrisCtx.beginPath();
+            harrisCtx.roundRect(tx, ty, boxW, boxH, 10);
+            harrisCtx.fill();
+            harrisCtx.stroke();
+
+            // 텍스트 크기 확대 (14px -> 18px/20px)
+            harrisCtx.font = 'bold 18px JetBrains Mono, monospace';
+            harrisCtx.fillStyle = '#f1f5f9';
+            harrisCtx.textAlign = 'left';
+            harrisCtx.fillText(`λ₁=${ev.l1.toFixed(0)}  λ₂=${ev.l2.toFixed(0)}`, tx + 15, ty + 32);
+            
+            harrisCtx.font = 'bold 18px JetBrains Mono, monospace';
+            harrisCtx.fillStyle = '#94a3b8';
+            harrisCtx.fillText(`R = ${rNorm}%`, tx + 15, ty + 62);
+            
+            harrisCtx.fillStyle = labelColor;
+            harrisCtx.font = 'bold 20px Inter, Noto Sans KR';
+            harrisCtx.textAlign = 'right';
+            harrisCtx.fillText(label, tx + boxW - 15, ty + 62);
+            harrisCtx.textAlign = 'start';
+        }
+
+        // 산점도에서 해당 점 강조
+        drawEigenScatter(eigenCtx, evs, bestIdx);
+    });
+
+    harrisCanvas.addEventListener('mouseleave', () => {
+        if (!harrisCache) return;
+        drawGrayImage(harrisCtx, harrisCache.grayImg, harrisCanvas.width, harrisCanvas.height);
+        const scaleX = harrisCanvas.width / harrisCache.SIZE;
+        const scaleY = harrisCanvas.height / harrisCache.SIZE;
+        harrisCache.result.corners.forEach(pt => {
+            harrisCtx.beginPath();
+            harrisCtx.arc(pt.x * scaleX, pt.y * scaleY, 5, 0, Math.PI * 2);
+            harrisCtx.strokeStyle = '#ef4444';
+            harrisCtx.lineWidth = 2.5;
+            harrisCtx.stroke();
+            harrisCtx.beginPath();
+            harrisCtx.arc(pt.x * scaleX, pt.y * scaleY, 2, 0, Math.PI * 2);
+            harrisCtx.fillStyle = '#fff';
+            harrisCtx.fill();
+        });
+        drawEigenScatter(eigenCtx, harrisCache.result.eigenValues);
+    });
+
     // 초기 프리셋 렌더링
     {
-        const initImg = generatePreset('shapes', 200);
+        const initImg = generatePreset('shapes', 400);
         drawGrayImage(harrisCtx, initImg, harrisCanvas.width, harrisCanvas.height);
         drawEigenScatter(eigenCtx, []);
         // 빈 응답 맵
@@ -615,8 +814,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 프리셋 변경 시 미리보기
     harrisPreset.addEventListener('change', () => {
-        const initImg = generatePreset(harrisPreset.value, 200);
+        const initImg = generatePreset(harrisPreset.value, 400);
         drawGrayImage(harrisCtx, initImg, harrisCanvas.width, harrisCanvas.height);
+        harrisCache = null; // 캐시 초기화
     });
 
 

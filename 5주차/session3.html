@@ -82,19 +82,19 @@
                         style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
                         <div class="canvas-container">
                             <h3 style="font-size:0.9rem;">입력 & 코너 검출</h3>
-                            <canvas id="harris-canvas" width="400" height="400"
+                            <canvas id="harris-canvas" width="560" height="560"
                                 style="width:100%; border-radius: 4px;"></canvas>
                             <div class="legend" id="harris-legend">프리셋 선택 후 [검출 실행]</div>
                         </div>
                         <div class="canvas-container">
-                            <h3 style="font-size:0.9rem;">고유값 분포 (\(\lambda_1, \lambda_2\))</h3>
-                            <canvas id="harris-eigen-canvas" width="400" height="400"
+                            <h3 style="font-size:0.9rem;">λ₁-λ₂ 산점도</h3>
+                            <canvas id="harris-eigen-canvas" width="560" height="560"
                                 style="width:100%; border-radius: 4px;"></canvas>
-                            <div class="legend">파란:평면 | 노랑:에지 | 빨강:코너</div>
+                            <div class="legend">이미지에 마우스를 올려 연동 확인</div>
                         </div>
                         <div class="canvas-container">
                             <h3 style="font-size:0.9rem;">코너 응답 (R) 히트맵</h3>
-                            <canvas id="harris-response-canvas" width="400" height="400"
+                            <canvas id="harris-response-canvas" width="560" height="560"
                                 style="width:100%; border-radius: 4px;"></canvas>
                             <div class="legend">밝을수록 높은 \(R\)값</div>
                         </div>
@@ -150,16 +150,22 @@
                             <div style="text-align:center; margin-bottom:1.2rem;">
                                 <canvas id="susan-mask-view" width="200" height="200"
                                     style="border-radius:50%; border:3px solid var(--primary); margin: 0 auto; display: block; box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);"></canvas>
-                                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">원형 마스크 (7×7)</p>
+                                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">원형 마스크 (7×7)
+                                </p>
                             </div>
                             <!-- USAN 비율 -->
                             <div style="margin-bottom:1.2rem;">
-                                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-                                    <span style="font-size:0.9rem; color:var(--text-muted); font-weight:500;">USAN 비율</span>
-                                    <span id="susan-ratio-text" style="font-weight:800; font-size:1.4rem; color:var(--primary); font-family:'JetBrains Mono', monospace;">0%</span>
+                                <div
+                                    style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                                    <span style="font-size:0.9rem; color:var(--text-muted); font-weight:500;">USAN
+                                        비율</span>
+                                    <span id="susan-ratio-text"
+                                        style="font-weight:800; font-size:1.4rem; color:var(--primary); font-family:'JetBrains Mono', monospace;">0%</span>
                                 </div>
                                 <div class="progress-bar-bg" style="height: 18px; border-radius: 9px;">
-                                    <div class="progress-bar-fill" id="susan-ratio-bar" style="width:0%; border-radius: 9px; transition: width 0.15s, background 0.3s;"></div>
+                                    <div class="progress-bar-fill" id="susan-ratio-bar"
+                                        style="width:0%; border-radius: 9px; transition: width 0.15s, background 0.3s;">
+                                    </div>
                                 </div>
                                 <div style="display:flex; justify-content:space-between; margin-top:4px;">
                                     <span style="font-size:0.7rem; color:#ef4444;">코너</span>
@@ -168,17 +174,26 @@
                                 </div>
                             </div>
                             <!-- 판정 결과 -->
-                            <div id="susan-verdict" class="verdict-box" style="margin-bottom:1.2rem; font-size:1.05rem; padding:1rem;">마우스를 올려보세요</div>
+                            <div id="susan-verdict" class="verdict-box"
+                                style="margin-bottom:1.2rem; font-size:1.05rem; padding:1rem;">마우스를 올려보세요</div>
                             <!-- 상세 수치 -->
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                                <div style="background:rgba(0,0,0,0.2); border-radius:10px; padding:0.8rem; text-align:center; border:1px solid rgba(255,255,255,0.05);">
-                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">USAN 크기 (n)</div>
-                                    <div id="susan-similar-count" style="font-size:1.3rem; font-weight:700; color:var(--primary); font-family:'JetBrains Mono', monospace;">0</div>
+                                <div
+                                    style="background:rgba(0,0,0,0.2); border-radius:10px; padding:0.8rem; text-align:center; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">USAN 크기
+                                        (n)</div>
+                                    <div id="susan-similar-count"
+                                        style="font-size:1.3rem; font-weight:700; color:var(--primary); font-family:'JetBrains Mono', monospace;">
+                                        0</div>
                                     <div style="font-size:0.65rem; color:var(--text-muted);">/ 37 픽셀</div>
                                 </div>
-                                <div style="background:rgba(0,0,0,0.2); border-radius:10px; padding:0.8rem; text-align:center; border:1px solid rgba(255,255,255,0.05);">
-                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">중심 밝기</div>
-                                    <div id="susan-center-val" style="font-size:1.3rem; font-weight:700; color:var(--text-main); font-family:'JetBrains Mono', monospace;">-</div>
+                                <div
+                                    style="background:rgba(0,0,0,0.2); border-radius:10px; padding:0.8rem; text-align:center; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">중심 밝기
+                                    </div>
+                                    <div id="susan-center-val"
+                                        style="font-size:1.3rem; font-weight:700; color:var(--text-main); font-family:'JetBrains Mono', monospace;">
+                                        -</div>
                                     <div style="font-size:0.65rem; color:var(--text-muted);">/ 255</div>
                                 </div>
                             </div>
