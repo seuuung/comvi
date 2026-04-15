@@ -83,8 +83,14 @@ function initEdgeLinking() {
                 const p2 = pixels[j];
                 if (Math.abs(p1.r - p2.r) <= 1 && Math.abs(p1.c - p2.c) <= 1) {
                     const magDiff = Math.abs(p1.mag - p2.mag);
+                    
+                    // 각도 차이 계산 (방향 일관성 체크)
                     let angDiff = Math.abs(p1.ang - p2.ang);
-                    if (angDiff > 90) angDiff = 180 - angDiff;
+                    // 180도 주기성을 고려하되, 반대 방향(약 180도 차이)은 연결되지 않도록 함
+                    if (angDiff > 90) {
+                        // 기존의 180 - angDiff 보정을 제거하거나 더 엄격하게 제한
+                        // 여기서는 방향이 반대인 경우(angDiff가 큰 경우) 연결을 차단하기 위해 보정 없이 그대로 둠
+                    }
 
                     if (magDiff <= mT && angDiff <= aT) {
                         newConnections.push({ p1, p2, magDiff, angDiff });

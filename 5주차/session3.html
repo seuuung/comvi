@@ -87,16 +87,54 @@
                             <div class="legend" id="harris-legend">프리셋 선택 후 [검출 실행]</div>
                         </div>
                         <div class="canvas-container">
+                            <h3 style="font-size:0.9rem;">2차 모멘트 행렬(M) 분석</h3>
+                            <div id="harris-matrix-panel" style="background: rgba(10, 15, 26, 0.8); border-radius: 8px; padding: 1.5rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100% - 25px);">
+                                <div style="font-size: 1.1rem; color: #cbd5e1; margin-bottom: 1.5rem; width: 100%; text-align: center;">
+                                    $$M = \sum_{w} w(x,y) \begin{bmatrix} I_x^2 & I_x I_y \\ I_x I_y & I_y^2 \end{bmatrix}$$
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div style="font-size: 4rem; color: #cbd5e1; font-weight: 200;">[</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; text-align: center;">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">\( \sum I_x^2 \)</span>
+                                            <span id="m11-val" style="font-size: 1.5rem; color: #f1f5f9; font-weight: 700; min-width: 80px;">-</span>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">\( \sum I_x I_y \)</span>
+                                            <span id="m12-val" style="font-size: 1.5rem; color: #f1f5f9; font-weight: 700; min-width: 80px;">-</span>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">\( \sum I_x I_y \)</span>
+                                            <span id="m21-val" style="font-size: 1.5rem; color: #f1f5f9; font-weight: 700; min-width: 80px;">-</span>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">\( \sum I_y^2 \)</span>
+                                            <span id="m22-val" style="font-size: 1.5rem; color: #f1f5f9; font-weight: 700; min-width: 80px;">-</span>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 4rem; color: #cbd5e1; font-weight: 200;">]</div>
+                                </div>
+                                <div style="margin-top: 2rem; width: 100%; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.5rem;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                        <span style="color: #94a3b8;">Determinant (det):</span>
+                                        <span id="m-det" style="color: #f1f5f9; font-weight: 600;">-</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 1.5rem;">
+                                        <span style="color: #94a3b8;">Trace (tr):</span>
+                                        <span id="m-tr" style="color: #f1f5f9; font-weight: 600;">-</span>
+                                    </div>
+                                    <div id="m-verdict" style="text-align: center; padding: 0.75rem; border-radius: 6px; background: rgba(59, 130, 246, 0.1); color: #60a5fa; font-weight: 700; border: 1px solid rgba(59, 130, 246, 0.2);">
+                                        픽셀 위에 마우스를 올리세요
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="legend">윈도우(σ) 내 그라디언트 합산 결과</div>
+                        </div>
+                        <div class="canvas-container">
                             <h3 style="font-size:0.9rem;">λ₁-λ₂ 산점도</h3>
                             <canvas id="harris-eigen-canvas" width="560" height="560"
                                 style="width:100%; border-radius: 4px;"></canvas>
-                            <div class="legend">이미지에 마우스를 올려 연동 확인</div>
-                        </div>
-                        <div class="canvas-container">
-                            <h3 style="font-size:0.9rem;">코너 응답 (R) 히트맵</h3>
-                            <canvas id="harris-response-canvas" width="560" height="560"
-                                style="width:100%; border-radius: 4px;"></canvas>
-                            <div class="legend">밝을수록 높은 \(R\)값</div>
+                            <div class="legend" id="harris-eigen-legend">이미지 위 마우스와 연동</div>
                         </div>
                     </div>
                     <!-- 상태 메시지 최적화 -->

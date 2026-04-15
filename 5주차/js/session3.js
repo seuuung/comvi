@@ -212,8 +212,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const harrisCtx = harrisCanvas.getContext('2d');
     const eigenCanvas = document.getElementById('harris-eigen-canvas');
     const eigenCtx = eigenCanvas.getContext('2d');
-    const responseCanvas = document.getElementById('harris-response-canvas');
-    const responseCtx = responseCanvas.getContext('2d');
+
+    // 행렬 표시용 엘리먼트
+    const m11Val = document.getElementById('m11-val');
+    const m12Val = document.getElementById('m12-val');
+    const m21Val = document.getElementById('m21-val');
+    const m22Val = document.getElementById('m22-val');
+    const mDet = document.getElementById('m-det');
+    const mTr = document.getElementById('m-tr');
+    const mVerdict = document.getElementById('m-verdict');
 
     const harrisPreset = document.getElementById('harris-preset');
     const harrisKSlider = document.getElementById('harris-k');
@@ -405,11 +412,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        return { R, corners, eigenValues, maxR, minR, w, h };
+        return { R, corners, eigenValues, maxR, minR, w, h, sIx2, sIy2, sIxIy };
     }
 
     /**
-     * 고유값 산점도 그리기 (R=0 결정경계 포함)
+     * 고유값 산점도 그리기
      */
     function drawEigenScatter(ctx, eigenValues, highlightIdx = -1) {
         const cw = ctx.canvas.width;
@@ -658,9 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // 고유값 산점도
             drawEigenScatter(eigenCtx, result.eigenValues);
 
-            // 코너 응답/특징 가능성 히트맵
-            drawResponseMap(responseCtx, result.R, result.corners, result.w, result.h);
-
             // 상태 갱신
             harrisStatus.innerHTML = `<strong>검출 완료</strong> 파라미터: <i>k</i>=${k}, <i>&sigma;</i>=${sigma}, 임계값=${threshPercent}% | 검출된 코너: <span style="color:#ef4444; font-size:1.3rem; font-weight:800;">${result.corners.length}</span>개`;
             harrisLegend.textContent = `검출된 코너: ${result.corners.length}개 (빨간 원으로 표시)`;
@@ -673,7 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 해리스 결과 캐시
     let harrisCache = null;
 
-    // 이미지 캔버스 hover → 산점도 연동
+    // 이미지 캔버스 hover → 행렬 & 산점도 연동
     harrisCanvas.addEventListener('mousemove', (e) => {
         if (!harrisCache) return;
         const rect = harrisCanvas.getBoundingClientRect();
@@ -737,13 +741,36 @@ document.addEventListener('DOMContentLoaded', () => {
             harrisCtx.lineWidth = 2;
             harrisCtx.stroke();
 
-            // 정보 말풍선 크기 및 위치 조정
-            const rNorm = harrisCache.result.maxR > 0 ? (ev.r / harrisCache.result.maxR * 100).toFixed(1) : '0';
-            const label = ev.r > 0 ? '코너' : (Math.max(ev.l1, ev.l2) > Math.min(ev.l1, ev.l2) * 3 ? '에지' : '평면');
-            const labelColor = ev.r > 0 ? '#ef4444' : (label === '에지' ? '#eab308' : '#3b82f6');
+            // 행렬 정보 업데이트
+            const idx = ev.y * harrisCache.SIZE + ev.x;
+            const m11 = harrisCache.result.sIx2[idx];
+            const m12 = harrisCache.result.sIxIy[idx];
+            const m22 = harrisCache.result.sIy2[idx];
+            
+            m11Val.textContent = Math.round(m11).toLocaleString();
+            m12Val.textContent = Math.round(m12).toLocaleString();
+            m21Val.textContent = Math.round(m12).toLocaleString();
+            m22Val.textContent = Math.round(m22).toLocaleString();
+            
+            const det = m11 * m22 - m12 * m12;
+            const tr = m11 + m22;
+            mDet.textContent = Math.round(det).toLocaleString();
+            mTr.textContent = Math.round(tr).toLocaleString();
 
-            const boxW = 260; // 200 -> 260
-            const boxH = 85;  // 60 -> 85
+            const label = ev.r > 0 ? '코너 (Corner)' : (Math.max(ev.l1, ev.l2) > Math.min(ev.l1, ev.l2) * 3 ? '에지 (Edge)' : '평면 (Flat)');
+            const bgColor = ev.r > 0 ? 'rgba(239, 68, 68, 0.2)' : (label.includes('에지') ? 'rgba(234, 179, 8, 0.2)' : 'rgba(59, 130, 246, 0.2)');
+            const borderColor = ev.r > 0 ? '#ef4444' : (label.includes('에지') ? '#eab308' : '#3b82f6');
+            const textColor = ev.r > 0 ? '#fca5a5' : (label.includes('에지') ? '#fde047' : '#60a5fa');
+
+            mVerdict.textContent = label;
+            mVerdict.style.background = bgColor;
+            mVerdict.style.borderColor = borderColor;
+            mVerdict.style.color = textColor;
+
+            // 정보 말풍선
+            const rNorm = harrisCache.result.maxR > 0 ? (ev.r / harrisCache.result.maxR * 100).toFixed(1) : '0';
+            const boxW = 260;
+            const boxH = 85;
             let tx = cx + 15;
             let ty = cy - boxH - 10;
             if (tx + boxW > harrisCanvas.width) tx = cx - boxW - 15;
@@ -757,7 +784,6 @@ document.addEventListener('DOMContentLoaded', () => {
             harrisCtx.fill();
             harrisCtx.stroke();
 
-            // 텍스트 크기 확대 (14px -> 18px/20px)
             harrisCtx.font = 'bold 18px JetBrains Mono, monospace';
             harrisCtx.fillStyle = '#f1f5f9';
             harrisCtx.textAlign = 'left';
@@ -767,10 +793,10 @@ document.addEventListener('DOMContentLoaded', () => {
             harrisCtx.fillStyle = '#94a3b8';
             harrisCtx.fillText(`R = ${rNorm}%`, tx + 15, ty + 62);
             
-            harrisCtx.fillStyle = labelColor;
+            harrisCtx.fillStyle = borderColor;
             harrisCtx.font = 'bold 20px Inter, Noto Sans KR';
             harrisCtx.textAlign = 'right';
-            harrisCtx.fillText(label, tx + boxW - 15, ty + 62);
+            harrisCtx.fillText(label.split(' ')[0], tx + boxW - 15, ty + 62);
             harrisCtx.textAlign = 'start';
         }
 
@@ -794,6 +820,19 @@ document.addEventListener('DOMContentLoaded', () => {
             harrisCtx.fillStyle = '#fff';
             harrisCtx.fill();
         });
+
+        // 행렬 정보 초기화
+        m11Val.textContent = '-';
+        m12Val.textContent = '-';
+        m21Val.textContent = '-';
+        m22Val.textContent = '-';
+        mDet.textContent = '-';
+        mTr.textContent = '-';
+        mVerdict.textContent = '픽셀 위에 마우스를 올리세요';
+        mVerdict.style.background = 'rgba(59, 130, 246, 0.1)';
+        mVerdict.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+        mVerdict.style.color = '#60a5fa';
+
         drawEigenScatter(eigenCtx, harrisCache.result.eigenValues);
     });
 
@@ -802,14 +841,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const initImg = generatePreset('shapes', 400);
         drawGrayImage(harrisCtx, initImg, harrisCanvas.width, harrisCanvas.height);
         drawEigenScatter(eigenCtx, []);
-        // 빈 응답 맵
-        responseCtx.fillStyle = '#0a0f1a';
-        responseCtx.fillRect(0, 0, responseCanvas.width, responseCanvas.height);
-        responseCtx.fillStyle = '#94a3b8';
-        responseCtx.font = '14px Inter, Noto Sans KR';
-        responseCtx.textAlign = 'center';
-        responseCtx.fillText('검출 실행 후 표시됩니다', responseCanvas.width / 2, responseCanvas.height / 2);
-        responseCtx.textAlign = 'start';
     }
 
     // 프리셋 변경 시 미리보기
