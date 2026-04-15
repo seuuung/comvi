@@ -363,18 +363,22 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let y = 5; y < h - 5; y++) {
             for (let x = 5; x < w - 5; x++) {
                 if (R[y * w + x] > threshold) {
-                    // 간단한 NMS (5x5)
+                    // 간단한 NMS (5x5) - 동일 값 처리 개선
                     let isMax = true;
+                    const val = R[y * w + x];
                     for (let dy = -2; dy <= 2 && isMax; dy++) {
                         for (let dx = -2; dx <= 2 && isMax; dx++) {
                             if (dy === 0 && dx === 0) continue;
-                            if (R[(y + dy) * w + (x + dx)] > R[y * w + x]) {
-                                isMax = false;
+                            const neighborVal = R[(y + dy) * w + (x + dx)];
+                            if (dy < 0 || (dy === 0 && dx < 0)) {
+                                if (neighborVal >= val) isMax = false;
+                            } else {
+                                if (neighborVal > val) isMax = false;
                             }
                         }
                     }
                     if (isMax) {
-                        corners.push({ x, y, r: R[y * w + x] });
+                        corners.push({ x, y, r: val });
                     }
                 }
             }
@@ -895,7 +899,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     nn += Math.exp(-Math.pow(nDiff / t, 6));
                                 }
                             });
-                            if (nn < n) isMin = false;
+                            if (dy < 0 || (dy === 0 && dx < 0)) {
+                                if (nn <= n) isMin = false;
+                            } else {
+                                if (nn < n) isMin = false;
+                            }
                         }
                     }
                     if (isMin) {
@@ -938,26 +946,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     nmsWindowSlider.addEventListener('input', () => {
         nmsWindowVal.textContent = nmsWindowSlider.value + '×' + nmsWindowSlider.value;
+        updateNmsFromCache();
     });
     nmsThresholdSlider.addEventListener('input', () => {
-        nmsThresholdVal.textContent = nmsThresholdSlider.value;
+        nmsThresholdVal.textContent = nmsThresholdSlider.value + '%';
+        updateNmsFromCache();
     });
 
-    /**
-     * 비최대 억제 알고리즘 (실제 구현)
-     * @param {Float32Array} R - 코너 응답 맵
-     * @param {number} w - 너비
-     * @param {number} h - 높이
-     * @param {number} windowSize - NMS 윈도우 크기 (홀수)
-     * @param {number} threshold - R값 임계값
-     * @returns {{before: Array, after: Array}} 임계값만 적용한 결과 & NMS 적용 결과
-     */
     function nonMaxSuppression(R, w, h, windowSize, threshold) {
         const half = Math.floor(windowSize / 2);
-        const before = []; // 임계값만 적용
-        const after = [];  // NMS 적용
+        const before = [];
+        const after = [];
 
-        // 임계값 적용 (NMS 없이)
         for (let y = 2; y < h - 2; y++) {
             for (let x = 2; x < w - 2; x++) {
                 if (R[y * w + x] > threshold) {
@@ -966,7 +966,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // NMS 적용
         for (let y = half; y < h - half; y++) {
             for (let x = half; x < w - half; x++) {
                 const val = R[y * w + x];
@@ -976,8 +975,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let dy = -half; dy <= half && isMax; dy++) {
                     for (let dx = -half; dx <= half && isMax; dx++) {
                         if (dx === 0 && dy === 0) continue;
-                        if (R[(y + dy) * w + (x + dx)] > val) {
-                            isMax = false;
+                        const neighborVal = R[(y + dy) * w + (x + dx)];
+                        if (dy < 0 || (dy === 0 && dx < 0)) {
+                            if (neighborVal >= val) isMax = false;
+                        } else {
+                            if (neighborVal > val) isMax = false;
                         }
                     }
                 }
@@ -991,9 +993,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return { before, after };
     }
 
-    /**
-     * NMS 비교 결과 그리기
-     */
     function drawNmsResult(ctx, canvas, grayImg, corners, cornerColor) {
         const SIZE = grayImg.length;
         const cw = canvas.width;
@@ -1004,9 +1003,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const scaleX = cw / SIZE;
         const scaleY = ch / SIZE;
 
+        // 격자선 그리기 (픽셀 경계 표시)
+        ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x <= SIZE; x++) {
+            ctx.beginPath();
+            ctx.moveTo(x * scaleX, 0);
+            ctx.lineTo(x * scaleX, ch);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= SIZE; y++) {
+            ctx.beginPath();
+            ctx.moveTo(0, y * scaleY);
+            ctx.lineTo(cw, y * scaleY);
+            ctx.stroke();
+        }
+
         corners.forEach(pt => {
             ctx.beginPath();
-            ctx.arc(pt.x * scaleX, pt.y * scaleY, 4, 0, Math.PI * 2);
+            ctx.arc(pt.x * scaleX + scaleX / 2, pt.y * scaleY + scaleY / 2, 4, 0, Math.PI * 2);
             ctx.fillStyle = cornerColor;
             ctx.fill();
             ctx.strokeStyle = '#fff';
@@ -1015,7 +1030,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // NMS 실행 버튼
+    // NMS 결과 캐시 (마우스 hover 시 다시 그리기 위해)
+    let nmsCache = {
+        grayImg: null,
+        before: [],
+        after: [],
+        R: null,
+        maxR: 0,
+        threshold: 0,
+        SIZE: 80
+    };
+
+    /**
+     * 캐시된 R값으로 슬라이더 변경 시 즉시 NMS 재계산
+     * 해리스 재연산 없이 임계값/윈도우만 변경하여 빠르게 결과 갱신
+     */
+    function updateNmsFromCache() {
+        if (!nmsCache.R) return; // 아직 실행 안 했으면 무시
+
+        const windowSize = parseInt(nmsWindowSlider.value);
+        const threshPercent = parseInt(nmsThresholdSlider.value);
+        const SIZE = nmsCache.SIZE;
+        const R = nmsCache.R;
+        const maxR = nmsCache.maxR;
+
+        const threshold = maxR * (threshPercent / 100);
+        const { before, after } = nonMaxSuppression(R, SIZE, SIZE, windowSize, threshold);
+
+        // 캐시 갱신
+        nmsCache.before = before;
+        nmsCache.after = after;
+        nmsCache.threshold = threshold;
+
+        drawNmsResult(nmsBeforeCtx, nmsBeforeCanvas, nmsCache.grayImg, before, 'rgba(239, 68, 68, 0.7)');
+        drawNmsResult(nmsAfterCtx, nmsAfterCanvas, nmsCache.grayImg, after, 'rgba(16, 185, 129, 0.9)');
+
+        nmsBeforeCount.textContent = before.length;
+        nmsAfterCount.textContent = after.length;
+
+        const reduction = before.length > 0 ? ((1 - after.length / before.length) * 100).toFixed(1) : 0;
+        nmsStatus.innerHTML = `<strong>비교 완료!</strong> 임계값만 적용: <span style="color:#ef4444;">${before.length}개</span> → NMS(${windowSize}×${windowSize}) 적용 후: <span style="color:#10b981;">${after.length}개</span> | 감소율: <span style="color:#a78bfa; font-weight:700;">${reduction}%</span>`;
+    }
+
     nmsRunBtn.addEventListener('click', () => {
         nmsRunBtn.textContent = '계산 중...';
         nmsRunBtn.disabled = true;
@@ -1025,10 +1081,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const windowSize = parseInt(nmsWindowSlider.value);
             const threshPercent = parseInt(nmsThresholdSlider.value);
 
-            const SIZE = 200;
+            const SIZE = 80; // 저해상도: 픽셀이 보이면서 알고리즘 정상 동작
             const grayImg = generatePreset(preset, SIZE);
 
-            // 해리스 응답 계산 (harrisCornerDetection 함수 재활용으로 코드 중복 제거)
             const harrisResult = harrisCornerDetection(grayImg, 0.04, 1.4, threshPercent);
             const R = harrisResult.R;
             const maxR = harrisResult.maxR;
@@ -1036,7 +1091,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const threshold = maxR * (threshPercent / 100);
             const { before, after } = nonMaxSuppression(R, SIZE, SIZE, windowSize, threshold);
 
-            // 렌더링
+            // 캐시 저장 (R값, 임계값 포함)
+            nmsCache = { grayImg, before, after, R, maxR, threshold, SIZE };
+
             drawNmsResult(nmsBeforeCtx, nmsBeforeCanvas, grayImg, before, 'rgba(239, 68, 68, 0.7)');
             drawNmsResult(nmsAfterCtx, nmsAfterCanvas, grayImg, after, 'rgba(16, 185, 129, 0.9)');
 
@@ -1051,19 +1108,230 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
     });
 
-    // 초기 프리셋 렌더링
-    {
-        const initImg = generatePreset('checker', 200);
-        drawGrayImage(nmsBeforeCtx, initImg, nmsBeforeCanvas.width, nmsBeforeCanvas.height);
-        drawGrayImage(nmsAfterCtx, initImg, nmsAfterCanvas.width, nmsAfterCanvas.height);
-    }
-
-    nmsPreset.addEventListener('change', () => {
-        const initImg = generatePreset(nmsPreset.value, 200);
-        drawGrayImage(nmsBeforeCtx, initImg, nmsBeforeCanvas.width, nmsBeforeCanvas.height);
-        drawGrayImage(nmsAfterCtx, initImg, nmsAfterCanvas.width, nmsAfterCanvas.height);
+    const initNms = () => {
+        const preset = nmsPreset.value;
+        const initImg = generatePreset(preset, 80);
+        nmsCache = { grayImg: initImg, before: [], after: [], R: null, maxR: 0, threshold: 0, SIZE: 80 };
+        drawNmsResult(nmsBeforeCtx, nmsBeforeCanvas, initImg, [], 'rgba(239, 68, 68, 0.7)');
+        drawNmsResult(nmsAfterCtx, nmsAfterCanvas, initImg, [], 'rgba(16, 185, 129, 0.9)');
         nmsBeforeCount.textContent = '0';
         nmsAfterCount.textContent = '0';
+    };
+
+    initNms();
+    nmsPreset.addEventListener('change', initNms);
+
+    /**
+     * NMS 캔버스 위에 윈도우 크기 + R값/임계값 오버레이 표시
+     */
+    function drawNmsWindowOverlay(canvas, ctx, e, corners, cornerColor) {
+        if (!nmsCache.grayImg) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleCanvasX = canvas.width / rect.width;
+        const scaleCanvasY = canvas.height / rect.height;
+        const mouseCanvasX = (e.clientX - rect.left) * scaleCanvasX;
+        const mouseCanvasY = (e.clientY - rect.top) * scaleCanvasY;
+
+        const SIZE = nmsCache.SIZE;
+        const pixelW = canvas.width / SIZE;
+        const pixelH = canvas.height / SIZE;
+
+        // 마우스가 가리키는 픽셀 좌표
+        const px = Math.floor(mouseCanvasX / pixelW);
+        const py = Math.floor(mouseCanvasY / pixelH);
+
+        if (px < 0 || px >= SIZE || py < 0 || py >= SIZE) return;
+
+        // 기존 결과 다시 렌더링
+        drawNmsResult(ctx, canvas, nmsCache.grayImg, corners, cornerColor);
+
+        const windowSize = parseInt(nmsWindowSlider.value);
+        const half = Math.floor(windowSize / 2);
+        const R = nmsCache.R;
+        const maxR = nmsCache.maxR;
+        const threshold = nmsCache.threshold;
+
+        // 윈도우 범위 계산 (클램핑)
+        const x1 = Math.max(0, px - half);
+        const y1 = Math.max(0, py - half);
+        const x2 = Math.min(SIZE - 1, px + half);
+        const y2 = Math.min(SIZE - 1, py + half);
+
+        // R값이 있으면 윈도우 내 픽셀별 R값 시각화
+        if (R) {
+            for (let wy = y1; wy <= y2; wy++) {
+                for (let wx = x1; wx <= x2; wx++) {
+                    const rVal = R[wy * SIZE + wx];
+                    if (rVal > threshold) {
+                        // 임계값 초과: 노란색 오버레이 (R값 클수록 진하게)
+                        const intensity = Math.min(1, rVal / maxR);
+                        ctx.fillStyle = `rgba(250, 204, 21, ${0.15 + intensity * 0.35})`;
+                    } else if (rVal > 0) {
+                        // 양수이지만 임계값 미달: 어두운 오버레이
+                        ctx.fillStyle = 'rgba(100, 100, 100, 0.2)';
+                    } else {
+                        // 음수 (에지/평면): 파란 오버레이
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+                    }
+                    ctx.fillRect(wx * pixelW, wy * pixelH, pixelW, pixelH);
+                }
+            }
+        } else {
+            // R값 없으면 기존 단색 오버레이
+            ctx.fillStyle = 'rgba(139, 92, 246, 0.15)';
+            ctx.fillRect(x1 * pixelW, y1 * pixelH, (x2 - x1 + 1) * pixelW, (y2 - y1 + 1) * pixelH);
+        }
+
+        // 윈도우 테두리
+        ctx.strokeStyle = '#a78bfa';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(x1 * pixelW, y1 * pixelH, (x2 - x1 + 1) * pixelW, (y2 - y1 + 1) * pixelH);
+        ctx.setLineDash([]);
+
+        // 중심 픽셀 강조
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px * pixelW, py * pixelH, pixelW, pixelH);
+
+        // 정보 말풍선 그리기 (R값, 임계값 비교)
+        if (R) {
+            const rVal = R[py * SIZE + px];
+            const aboveThreshold = rVal > threshold;
+
+            // 윈도우 내 최대값 찾기
+            let windowMax = -Infinity;
+            let windowMaxX = px, windowMaxY = py;
+            for (let wy = y1; wy <= y2; wy++) {
+                for (let wx = x1; wx <= x2; wx++) {
+                    if (R[wy * SIZE + wx] > windowMax) {
+                        windowMax = R[wy * SIZE + wx];
+                        windowMaxX = wx;
+                        windowMaxY = wy;
+                    }
+                }
+            }
+            const isLocalMax = (px === windowMaxX && py === windowMaxY);
+
+            // 윈도우 내 최대값 픽셀에 별 표시
+            if (windowMax > threshold) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = 'bold 14px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('★', windowMaxX * pixelW + pixelW / 2, windowMaxY * pixelH + pixelH / 2 + 5);
+            }
+
+            // 말풍선 위치 계산 (윈도우 영역을 가리지 않도록 바깥에 배치)
+            const tooltipW = 185;
+            const tooltipH = 62;
+            const winLeft = x1 * pixelW;
+            const winRight = (x2 + 1) * pixelW;
+            const winTop = y1 * pixelH;
+            const winBottom = (y2 + 1) * pixelH;
+
+            let tx, ty;
+            if (winRight + tooltipW + 6 <= canvas.width) {
+                // 윈도우 오른쪽에 배치
+                tx = winRight + 6;
+                ty = winTop;
+            } else if (winLeft - tooltipW - 6 >= 0) {
+                // 윈도우 왼쪽에 배치
+                tx = winLeft - tooltipW - 6;
+                ty = winTop;
+            } else if (winTop - tooltipH - 6 >= 0) {
+                // 윈도우 위에 배치
+                tx = winLeft;
+                ty = winTop - tooltipH - 6;
+            } else {
+                // 윈도우 아래에 배치
+                tx = winLeft;
+                ty = winBottom + 6;
+            }
+            // 캔버스 경계 클램핑
+            tx = Math.max(2, Math.min(canvas.width - tooltipW - 2, tx));
+            ty = Math.max(2, Math.min(canvas.height - tooltipH - 2, ty));
+
+            // 말풍선 배경
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+            ctx.beginPath();
+            const radius = 6;
+            ctx.moveTo(tx + radius, ty);
+            ctx.lineTo(tx + tooltipW - radius, ty);
+            ctx.arcTo(tx + tooltipW, ty, tx + tooltipW, ty + radius, radius);
+            ctx.lineTo(tx + tooltipW, ty + tooltipH - radius);
+            ctx.arcTo(tx + tooltipW, ty + tooltipH, tx + tooltipW - radius, ty + tooltipH, radius);
+            ctx.lineTo(tx + radius, ty + tooltipH);
+            ctx.arcTo(tx, ty + tooltipH, tx, ty + tooltipH - radius, radius);
+            ctx.lineTo(tx, ty + radius);
+            ctx.arcTo(tx, ty, tx + radius, ty, radius);
+            ctx.fill();
+            ctx.strokeStyle = aboveThreshold ? '#fbbf24' : '#475569';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([]);
+            ctx.stroke();
+
+            // R값을 maxR 대비 정규화 (0~100%)
+            const rPercent = maxR > 0 ? (rVal / maxR * 100) : 0;
+            const threshPercent = maxR > 0 ? (threshold / maxR * 100) : 0;
+
+            ctx.textAlign = 'left';
+            ctx.font = '11px Inter, Noto Sans KR';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`R값:`, tx + 8, ty + 16);
+            ctx.fillStyle = aboveThreshold ? '#fbbf24' : '#ef4444';
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(`${rPercent.toFixed(1)}%`, tx + 40, ty + 16);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter, Noto Sans KR';
+            ctx.fillText(`임계값:`, tx + 8, ty + 32);
+            ctx.fillStyle = '#a78bfa';
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(`${threshPercent.toFixed(1)}%`, tx + 55, ty + 32);
+
+            // 판정 결과
+            ctx.font = 'bold 11px Inter, Noto Sans KR';
+            if (aboveThreshold && isLocalMax) {
+                ctx.fillStyle = '#10b981';
+                ctx.fillText('✓ 임계값↑ + 지역최대 → 코너!', tx + 8, ty + 52);
+            } else if (aboveThreshold) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillText('△ 임계값↑ 이지만 지역최대✗', tx + 8, ty + 52);
+            } else {
+                ctx.fillStyle = '#64748b';
+                ctx.fillText('✗ 임계값 미달 → 억제됨', tx + 8, ty + 52);
+            }
+            ctx.textAlign = 'start';
+        }
+
+        // 윈도우 크기 라벨
+        ctx.fillStyle = '#a78bfa';
+        ctx.font = 'bold 12px Inter, Noto Sans KR';
+        ctx.textAlign = 'center';
+        const labelX = (x1 + x2 + 1) / 2 * pixelW;
+        const labelY = y1 * pixelH - 5;
+        ctx.fillText(`${windowSize}×${windowSize}`, labelX, labelY > 14 ? labelY : (y2 + 1) * pixelH + 14);
+        ctx.textAlign = 'start';
+    }
+
+    // NMS Before 캔버스 마우스 이벤트
+    nmsBeforeCanvas.addEventListener('mousemove', (e) => {
+        drawNmsWindowOverlay(nmsBeforeCanvas, nmsBeforeCtx, e, nmsCache.before, 'rgba(239, 68, 68, 0.7)');
+    });
+    nmsBeforeCanvas.addEventListener('mouseleave', () => {
+        if (nmsCache.grayImg) {
+            drawNmsResult(nmsBeforeCtx, nmsBeforeCanvas, nmsCache.grayImg, nmsCache.before, 'rgba(239, 68, 68, 0.7)');
+        }
+    });
+
+    // NMS After 캔버스 마우스 이벤트
+    nmsAfterCanvas.addEventListener('mousemove', (e) => {
+        drawNmsWindowOverlay(nmsAfterCanvas, nmsAfterCtx, e, nmsCache.after, 'rgba(16, 185, 129, 0.9)');
+    });
+    nmsAfterCanvas.addEventListener('mouseleave', () => {
+        if (nmsCache.grayImg) {
+            drawNmsResult(nmsAfterCtx, nmsAfterCanvas, nmsCache.grayImg, nmsCache.after, 'rgba(16, 185, 129, 0.9)');
+        }
     });
 
 });

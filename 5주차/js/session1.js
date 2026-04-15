@@ -32,23 +32,31 @@ function initEdgeLinking() {
     const cellW = (width - padding * 2) / cols;
     const cellH = (height - padding * 2) / rows;
 
+    // 데이터 상태 (고정되어야 함)
     let pixels = [];
-    let mT = parseInt(magRange.value);
-    let aT = parseInt(angRange.value);
+    let connections = [];
+    let hoveredConn = null;
 
+    // 점과 선분 사이의 거리 계산 (순수 함수)
+    function getDistToSegment(px, py, x1, y1, x2, y2) {
+        const l2 = (x1 - x2) ** 2 + (y1 - y2) ** 2;
+        if (l2 === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+        let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.sqrt((px - (x1 + t * (x2 - x1))) ** 2 + (py - (y1 + t * (y2 - y1))) ** 2);
+    }
+
+    // 1. 데이터 생성 (이 버튼을 누를 때만 랜덤값이 생성됨)
     function generateData() {
-        pixels = [];
+        const newPixels = [];
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
-                // 특정 패턴(약간 휜 대각선)을 기본으로 에지 픽셀 생성
                 const isEdgeInPattern = Math.abs((c - cols / 2) - (r - rows / 2) * 1.5) < 0.8;
                 const isNoise = Math.random() < 0.15;
-
                 if (isEdgeInPattern || isNoise) {
                     const baseMag = isEdgeInPattern ? 70 : 40;
                     const baseAng = isEdgeInPattern ? 45 : Math.random() * 180;
-                    
-                    pixels.push({
+                    newPixels.push({
                         r, c,
                         x: padding + c * cellW + cellW / 2,
                         y: padding + r * cellH + cellH / 2,
@@ -58,14 +66,42 @@ function initEdgeLinking() {
                 }
             }
         }
+        pixels = newPixels;
+        updateConnections();
         render();
     }
 
+    // 2. 연결 정보 계산 (임계값 변경 시 호출)
+    function updateConnections() {
+        const mT = parseInt(magRange.value);
+        const aT = parseInt(angRange.value);
+        const newConnections = [];
+        
+        for (let i = 0; i < pixels.length; i++) {
+            for (let j = i + 1; j < pixels.length; j++) {
+                const p1 = pixels[i];
+                const p2 = pixels[j];
+                if (Math.abs(p1.r - p2.r) <= 1 && Math.abs(p1.c - p2.c) <= 1) {
+                    const magDiff = Math.abs(p1.mag - p2.mag);
+                    let angDiff = Math.abs(p1.ang - p2.ang);
+                    if (angDiff > 90) angDiff = 180 - angDiff;
+
+                    if (magDiff <= mT && angDiff <= aT) {
+                        newConnections.push({ p1, p2, magDiff, angDiff });
+                    }
+                }
+            }
+        }
+        connections = newConnections;
+    }
+
+    // 3. 렌더링 (단순 그리기 전용)
     function render() {
+        ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = "#111827";
         ctx.fillRect(0, 0, width, height);
 
-        // 1. 그리드 렌더링 (더 선명하게 수정)
+        // 그리드
         ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
         ctx.lineWidth = 1;
         for (let r = 0; r <= rows; r++) {
@@ -77,56 +113,44 @@ function initEdgeLinking() {
             ctx.beginPath(); ctx.moveTo(x, padding); ctx.lineTo(x, height - padding); ctx.stroke();
         }
 
-        // 2. 연결선 계산 및 그리기 (8-이웃) - 네온 효과 추가
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "rgba(239, 68, 68, 0.8)"; 
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.9)";
-        ctx.lineWidth = 4;
-        for (let i = 0; i < pixels.length; i++) {
-            for (let j = i + 1; j < pixels.length; j++) {
-                const p1 = pixels[i];
-                const p2 = pixels[j];
-                if (Math.abs(p1.r - p2.r) <= 1 && Math.abs(p1.c - p2.c) <= 1) {
-                    const magDiff = Math.abs(p1.mag - p2.mag);
-                    let angDiff = Math.abs(p1.ang - p2.ang);
-                    if (angDiff > 90) angDiff = 180 - angDiff;
-
-                    if (magDiff <= mT && angDiff <= aT) {
-                        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-                    }
-                }
-            }
-        }
-        ctx.shadowBlur = 0; // 초기화
-
-        // 3. 에지 픽셀 렌더링
+        // 픽셀 배경
         pixels.forEach(p => {
-            // 픽셀 포인트 (글로우 효과 추가)
-            const alpha = 0.5 + (p.mag / 100) * 0.5;
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = "rgba(59, 130, 246, 0.8)";
-            ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
+            const opacity = (p.mag / 100) * 0.5;
+            ctx.fillStyle = `rgba(59, 130, 246, ${opacity})`;
+            ctx.fillRect(padding + p.c * cellW + 1, padding + p.r * cellH + 1, cellW - 2, cellH - 2);
+        });
 
-            // 방향 화살표 (삼각형 머리 추가)
-            const arrowLen = 20;
+        // 연결선
+        connections.forEach(conn => {
+            ctx.save();
+            ctx.beginPath();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.9)";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "rgba(239, 68, 68, 0.8)";
+            ctx.moveTo(conn.p1.x, conn.p1.y);
+            ctx.lineTo(conn.p2.x, conn.p2.y);
+            ctx.stroke();
+            ctx.restore();
+        });
+
+        // 화살표 및 텍스트
+        pixels.forEach(p => {
+            const arrowLen = 34; // 22 -> 34
             const rad = (p.ang * Math.PI) / 180;
             const dx = Math.cos(rad) * arrowLen;
             const dy = -Math.sin(rad) * arrowLen;
-
-            ctx.strokeStyle = "#fff";
-            ctx.fillStyle = "#fff";
-            ctx.lineWidth = 2;
             
-            // 화살표 몸통
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.lineWidth = 3.5; // 2.5 -> 3.5
+            
             ctx.beginPath();
             ctx.moveTo(p.x - dx/2.5, p.y - dy/2.5);
             ctx.lineTo(p.x + dx/2.5, p.y + dy/2.5);
             ctx.stroke();
 
-            // 화살표 머리 (삼각형)
-            const headLen = 6;
+            const headLen = 15; // 10 -> 15 (더 크고 뚜렷하게)
             const angle = Math.atan2(dy, dx);
             ctx.beginPath();
             ctx.moveTo(p.x + dx/2.5, p.y + dy/2.5);
@@ -135,31 +159,27 @@ function initEdgeLinking() {
             ctx.closePath();
             ctx.fill();
 
-            // 정보 텍스트 배경 박스 (가독성 증대)
-            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-            ctx.fillRect(p.x - 22, p.y + 14, 44, 26);
-
             ctx.fillStyle = "#fff";
-            ctx.font = "bold 11px Inter";
-            ctx.textAlign = "center";
-            ctx.fillText(`M:${Math.round(p.mag)}`, p.x, p.y + 24);
-            ctx.fillText(`A:${Math.round(p.ang)}°`, p.x, p.y + 36);
+            ctx.font = "bold 12px Inter"; // 9px -> 12px
+            ctx.textAlign = "left"; // 좌측 정렬로 변경
+            // 좌측 상단 모서리로 이동 (여백 약간 추가)
+            ctx.fillText(`M:${Math.round(p.mag)}`, p.x - cellW/2 + 6, p.y - cellH/2 + 15); // +4, +11 -> +6, +15
+            // 좌측 하단 모서리로 이동 (여백 약간 추가)
+            ctx.fillText(`A:${Math.round(p.ang)}°`, p.x - cellW/2 + 6, p.y + cellH/2 - 6); // +4, -4 -> +6, -6
         });
     }
 
-    magRange.addEventListener('input', (e) => {
-        mT = parseInt(e.target.value);
-        magValLabel.textContent = mT;
+    const updateHandler = () => {
+        magValLabel.textContent = magRange.value;
+        angValLabel.textContent = angRange.value;
+        updateConnections();
         render();
-    });
+    };
 
-    angRange.addEventListener('input', (e) => {
-        aT = parseInt(e.target.value);
-        angValLabel.textContent = aT;
-        render();
-    });
+    magRange.addEventListener('input', updateHandler);
+    angRange.addEventListener('input', updateHandler);
+    resetBtn.addEventListener('click', (e) => { e.preventDefault(); generateData(); });
 
-    resetBtn.addEventListener('click', generateData);
     generateData();
 }
 
@@ -193,8 +213,8 @@ function initHoughTransform() {
         houghLines = [];
         accumulator = Array(thetaMax).fill(null).map(() => Array(rhoMax).fill(0));
 
-        // 파라미터 공간 캔버스 초기화
-        paramCtx.fillStyle = "#000";
+        // 파라미터 공간 캔버스 초기화 (배경색 통일)
+        paramCtx.fillStyle = "#111827";
         paramCtx.fillRect(0, 0, paramCanvas.width, paramCanvas.height);
 
         renderImageSpace();
@@ -202,7 +222,7 @@ function initHoughTransform() {
     }
 
     function renderImageSpace() {
-        imgCtx.fillStyle = "#000";
+        imgCtx.fillStyle = "#111827";
         imgCtx.fillRect(0, 0, width, height);
         drawGrid(imgCtx, width, height);
 
@@ -299,6 +319,14 @@ function initHoughTransform() {
 
         const imgData = paramCtx.createImageData(pWidth, pHeight);
 
+        // 픽셀 데이터 배경을 #111827 (17, 24, 39)로 초기화
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            imgData.data[i] = 17;     // R
+            imgData.data[i + 1] = 24; // G
+            imgData.data[i + 2] = 39; // B
+            imgData.data[i + 3] = 255;// Alpha
+        }
+
         for (let t = 0; t < thetaMax; t++) {
             for (let r = 0; r < rhoMax; r++) {
                 const val = accumulator[t][r];
@@ -330,9 +358,11 @@ function initHoughTransform() {
         }
         paramCtx.putImageData(imgData, 0, 0);
 
-        // 파라미터 공간 십자선 (theta, rho 축)
-        paramCtx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        // 파라미터 공간 십자선 (theta, rho 축) - 상태 초기화 후 그리기
+        paramCtx.globalAlpha = 1.0;
         paramCtx.setLineDash([5, 5]);
+        paramCtx.strokeStyle = "rgba(255, 255, 255, 0.25)"; // 약간 더 선명하게 고정
+        paramCtx.lineWidth = 1;
         paramCtx.beginPath();
         paramCtx.moveTo(0, pHeight / 2); paramCtx.lineTo(pWidth, pHeight / 2);
         paramCtx.moveTo(pWidth / 2, 0); paramCtx.lineTo(pWidth / 2, pHeight);
@@ -846,14 +876,20 @@ function initApproximation() {
 
     // 캔버스 드로잉 이벤트
     canvas.addEventListener('mousedown', (e) => {
-        curvePoints = [];
-        validSegments = [];
         isDrawing = true;
-        addCanvasPoint(e);
+        // mousedown 시점에는 상태만 변경하고, addCanvasPoint 내부나 
+        // 실제 유의미한 드로잉 시작 시점에 초기화하도록 유도
     });
 
     canvas.addEventListener('mousemove', (e) => {
         if (!isDrawing) return;
+        
+        // 첫 번째 점을 찍기 직전에만 기존 데이터를 지움
+        if (curvePoints.length === 0 || (curvePoints.length > 0 && validSegments.length > 0)) {
+            curvePoints = [];
+            validSegments = [];
+        }
+        
         addCanvasPoint(e);
     });
 

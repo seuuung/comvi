@@ -28,176 +28,154 @@
     </header>
 
     <main class="container">
-        <!-- 1. Edge Linking Section (New) -->
+        <!-- 1. Edge Linking Section -->
         <section id="sim-section-1" class="card glass">
-            <div class="card-header">
-                <h2>1. 에지 연결 (Edge Linking)</h2>
-                <div class="theory-box">
-                    <h3>[수업 내용 요약]</h3>
-                    <ul>
-                        <li><strong>에지 연결:</strong> 검출된 불연속적인 에지 픽셀들을 유사한 특징(크기, 방향)을 가진 이웃끼리 묶어 의미 있는 경계선으로 만드는 과정입니다.</li>
-                        <li><strong>연결 기준 (Local Processing):</strong> 두 픽셀 \(s\)와 \(t\)가 다음 두 조건을 모두 만족하면 연결된 것으로 간주합니다.
-                            <ol>
-                                <li><strong>에지 강도(Magnitude) 유사도:</strong> \(|M(s) - M(t)| \le T_m\)</li>
-                                <li><strong>에지 방향(Angle) 유사도:</strong> \(|\alpha(s) - \alpha(t)| \le T_a\)</li>
-                            </ol>
-                        </li>
-                        <li>본 시뮬레이션은 8-이웃(8-neighbors) 탐색을 통해 위 조건을 만족하는 픽셀 간에 연결선(빨간색)을 생성합니다.</li>
-                    </ul>
+            <div class="card-content-split">
+                <div class="theory-column">
+                    <h2>1. 에지 연결 (Edge Linking)</h2>
+                    <div class="theory-box">
+                        <h3>[알고리즘 개요 및 목표]</h3>
+                        <p><strong>사용 이유:</strong> 실제 영상에서는 잡음이나 낮은 대비로 인해 에지가 조각나거나 끊어져 나타나는 경우가 많습니다.</p>
+                        <p><strong>최종 목표:</strong> 유사한 강도와 방향을 가진 인접 픽셀들을 그룹화하여, 파편화된 정보를 하나의 의미 있는 <strong>연속적 경계선</strong>으로 복구하는 것입니다.</p>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px dashed rgba(255,255,255,0.2);">
+                        <p><strong>연결 기준 (Local Processing):</strong> 두 픽셀 \(s\)와 \(t\)가 다음 두 조건을 모두 만족하면 연결된 것으로 간주합니다.</p>
+                        <ol>
+                            <li><strong>에지 강도 유사도:</strong> \(|M(s) - M(t)| \le T_m\)</li>
+                            <li><strong>에지 방향 유사도:</strong> \(|\alpha(s) - \alpha(t)| \le T_a\)</li>
+                        </ol>
+                        <p style="margin-top:10px;">* 본 시뮬레이션은 8-이웃 탐색을 통해 위 조건을 만족하는 픽셀 간에 연결선(빨간색)을 생성합니다.</p>
+                    </div>
                 </div>
-                <p>슬라이더를 조절하여 에지 강도 임계값(\(T_m\))과 방향 임계값(\(T_a\))에 따라 픽셀들이 어떻게 연결되는지 확인해보세요. 각 픽셀 내의 화살표는 그래디언트 방향(\(\alpha\))을 나타냅니다.</p>
-                
-                <div class="controls mode-controls" style="align-items: center; border:none; padding-bottom:0">
-                    <label style="margin-right:0.5rem; display:inline-block;">강도 임계값(\(T_m\)): <span id="link-mag-val" style="display:inline-block; width: 3ch; text-align: right;">30</span></label>
-                    <input type="range" id="link-mag-threshold" min="0" max="100" value="30" style="margin-right: 1.5rem; width: 120px;">
-                    
-                    <label style="margin-right:0.5rem; display:inline-block;">방향 임계값(\(T_a\)): <span id="link-ang-val" style="display:inline-block; width: 3ch; text-align: right;">20</span>°</label>
-                    <input type="range" id="link-ang-threshold" min="0" max="90" value="20" style="margin-right: 1.5rem; width: 120px;">
-                    
-                    <button class="btn btn-secondary" id="link-reset-btn">샘플 데이터 재생성</button>
-                </div>
-            </div>
-
-            <div class="simulation-area">
-                <div class="canvas-container">
-                    <h3>에지 픽셀 그리드 및 연결 상태</h3>
-                    <canvas id="link-canvas" width="840" height="400"></canvas>
+                <div class="simulation-column">
+                    <div class="controls mode-controls" style="align-items: center; border:none; padding-bottom:0">
+                        <label style="margin-right:0.5rem; display:inline-block;">강도 임계값(\(T_m\)): <span id="link-mag-val" style="display:inline-block; width: 3ch; text-align: right;">30</span></label>
+                        <input type="range" id="link-mag-threshold" min="0" max="100" value="30" style="margin-right: 1.5rem; width: 120px;">
+                        <label style="margin-right:0.5rem; display:inline-block;">방향 임계값(\(T_a\)): <span id="link-ang-val" style="display:inline-block; width: 3ch; text-align: right;">20</span>°</label>
+                        <input type="range" id="link-ang-threshold" min="0" max="90" value="20" style="margin-right: 1.5rem; width: 120px;">
+                        <button class="btn btn-secondary" id="link-reset-btn">샘플 데이터 재생성</button>
+                    </div>
+                    <div class="simulation-area">
+                        <div class="canvas-container">
+                            <h3>에지 픽셀 그리드 및 연결 상태</h3>
+                            <canvas id="link-canvas" width="1000" height="500"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- 2. Edge Approximation Section (Moved to 2nd) -->
+        <!-- 2. Edge Approximation Section -->
         <section id="sim-section-2" class="card glass">
-            <div class="card-header">
-                <h2>2. 선분 근사 (Edge Approximation / RDP Algorithm)</h2>
-                <div class="theory-box">
-                    <h3>[수업 내용 요약]</h3>
-                    <ul>
-                        <li><strong>에지 결과의 근사:</strong> 복잡한 곡선 형태의 에지 픽셀 군집을 여러 개의 단순한 '직선(선분)'들로 나누어
-                            근사(Approximation)하는 RDP(Ramer-Douglas-Peucker) 과정입니다.</li>
-                        <li><strong>분할 기준(Threshold \(h\)):</strong> 양 끝점을 연결한 선분 \(ax + by + c = 0\) 을 기준으로, 곡선 상의 점들
-                            \((x_i, y_i)\) 중 직선과 <strong>가장 멀리 떨어진 수직 거리 \(h\)</strong>를 구합니다.
-                        </li>
-                        <li>이 최대 거리 \(h\)가 설정한 임계값보다 크면 해당 점을 쪼개어(Split) 선분을 분할하며, 거리가 임계값 이내가 될 때까지 이 과정을 재귀적으로 반복합니다.
-                        </li>
-                    </ul>
+            <div class="card-content-split">
+                <div class="theory-column">
+                    <h2>2. 선분 근사 (Edge Approximation)</h2>
+                    <div class="theory-box">
+                        <h3>[알고리즘 개요 및 목표]</h3>
+                        <p><strong>사용 이유:</strong> 에지 검출 결과인 수많은 픽셀 데이터를 그대로 유지하는 것은 메모리와 연산 측면에서 매우 비효율적입니다.</p>
+                        <p><strong>최종 목표:</strong> 곡선의 핵심적인 형상을 유지하면서, 최소한의 정점만을 남기는 <strong>벡터화(Vectorization)</strong>를 통해 데이터를 압축하고 기하학적 분석을 용이하게 하는 것입니다.</p>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px dashed rgba(255,255,255,0.2);">
+                        <p><strong>RDP(Ramer-Douglas-Peucker) 과정:</strong></p>
+                        <ul>
+                            <li>양 끝점을 연결한 선분을 기준으로 곡선 상의 점들 중 직선과 <strong>가장 멀리 떨어진 수직 거리 \(h\)</strong>를 구합니다.</li>
+                            <li>이 최대 거리 \(h\)가 설정한 임계값보다 크면 해당 점을 쪼개어 선분을 분할하며 재귀적으로 반복합니다.</li>
+                        </ul>
+                    </div>
+                    <p>슬라이더를 움직여 임계값에 따라 선분 근사가 어떻게 실시간으로 변하는지 확인해보세요. <strong>(초록색 선: 근사 선분)</strong></p>
                 </div>
-                <p>슬라이더를 움직여 임계값에 따라 선분 근사가 어떻게 실시간으로 변하는지 확인해보세요. 캔버스 위에 마우스를 드래그하여 새로운 곡선을 덮어 그릴 수도 있습니다. <strong>(초록색
-                        선: 기준이 되는 근사 선분)</strong></p>
-
-                <div class="controls mode-controls" style="align-items: center; border:none; padding-bottom:0">
-                    <label style="margin-right:0.5rem; display:inline-block;">임계값(\(h\)) 허용 오차: <span
-                            id="approx-threshold-val"
-                            style="display:inline-block; width: 3ch; text-align: right;">150</span>px</label>
-                    <input type="range" id="approx-threshold" min="2" max="150" value="150"
-                        style="margin-right: 1.5rem; width: 150px;">
-                    <button class="btn btn-secondary" id="approx-reset-btn">기본 샘플 곡선 렌더링</button>
-                    <button class="btn btn-secondary" id="approx-clear-btn">직접 그리기</button>
-                </div>
-            </div>
-
-            <div class="simulation-area">
-                <div class="canvas-container">
-                    <h3>에지 곡선 및 선분 근사 과정</h3>
-                    <canvas id="approx-canvas" width="840" height="350"></canvas>
-                </div>
-
-                <div class="stats-panel glass">
-                    <h3>현재 분할(Split) 큐 상태</h3>
-                    <p class="status-msg" id="approx-status-msg" style="color:var(--text-main)">마우스로 곡선을 그린 후, 진행 버튼을 눌러
-                        선분 분할 추적을 시작하세요.</p>
+                <div class="simulation-column">
+                    <div class="controls mode-controls" style="align-items: center; border:none; padding-bottom:0">
+                        <label style="margin-right:0.5rem; display:inline-block;">임계값(\(h\)): <span id="approx-threshold-val" style="display:inline-block; width: 3ch; text-align: right;">150</span>px</label>
+                        <input type="range" id="approx-threshold" min="2" max="150" value="150" style="margin-right: 1.5rem; width: 150px;">
+                        <button class="btn btn-secondary" id="approx-reset-btn">샘플 곡선</button>
+                        <button class="btn btn-secondary" id="approx-clear-btn">직접 그리기</button>
+                    </div>
+                    <div class="simulation-area">
+                        <div class="canvas-container">
+                            <h3>에지 곡선 및 선분 근사 과정</h3>
+                            <canvas id="approx-canvas" width="840" height="350"></canvas>
+                        </div>
+                        <div class="stats-panel glass">
+                            <h3>알고리즘 상태</h3>
+                            <p class="status-msg" id="approx-status-msg" style="color:var(--text-main)">마우스로 곡선을 그린 후 슬라이더를 조절하세요.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- 3. Hough Transform Section (Moved to 3rd) -->
+        <!-- 3. Hough Transform Section -->
         <section id="sim-section-3" class="card glass">
-            <div class="card-header">
-                <h2>3. 허프 변환 (Hough Transform)</h2>
-                <div class="theory-box">
-                    <h3>[수업 내용 요약]</h3>
-                    <ul>
-                        <li><strong>허프 변환:</strong> 영상 공간 \((x, y)\)에 존재하는 선분이나 곡선의 파라미터를 파라미터 공간 \((\rho, \theta)\)으로
-                            매핑하여 직선을 검출하는 기법입니다.</li>
-                        <li>영상 공간에서의 한 점은 다음 수식에 의해 파라미터 공간에서 <strong>사인(sine) 곡선</strong>으로 나타납니다.
-                            <div style="text-align:center; padding:10px 0;">$$\rho = x \cos \theta + y \sin \theta$$
-                            </div>
-                        </li>
-                        <li>수많은 에지 픽셀들이 만들어내는 곡선들이 <strong>가장 많이 교차하는 점</strong>(Accumulator 최댓값)이 원래 영상 공간에서의 가장 뚜렷한
-                            직선을 의미합니다.</li>
-                    </ul>
+            <div class="card-content-split">
+                <div class="theory-column">
+                    <h2>3. 허프 변환 (Hough Transform)</h2>
+                    <div class="theory-box">
+                        <h3>[알고리즘 개요 및 목표]</h3>
+                        <p><strong>사용 이유:</strong> 에지 픽셀들은 단순한 점들의 집합일 뿐이며, 이들이 어떤 직선을 이루고 있는지 수학적으로 알기 어렵습니다.</p>
+                        <p><strong>최종 목표:</strong> 부분적인 단절이나 잡음이 섞인 환경에서도 픽셀들이 지지하는 <strong>전역적인 직선 방정식</strong>을 강건하게 찾아내는 것입니다.</p>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px dashed rgba(255,255,255,0.2);">
+                        <p>영상 공간 \((x, y)\)의 한 점은 파라미터 공간 \((\rho, \theta)\)에서 <strong>사인(sine) 곡선</strong>으로 나타납니다:</p>
+                        <div style="text-align:center; padding:10px 0;">$$\rho = x \cos \theta + y \sin \theta$$</div>
+                        <p>사인 곡선들이 <strong>가장 많이 교차하는 점</strong>이 원래 영상 공간에서의 직선을 의미합니다.</p>
+                    </div>
+                    <p><strong>[영상 공간]</strong> 캔버스에 점을 추가해보세요. <strong>[파라미터 공간]</strong>을 클릭하면 해당하는 <strong>역변환 직선</strong>이 그려집니다.</p>
                 </div>
-                <p>영상 공간 \((x, y)\)의 점이 파라미터 공간 \((\rho, \theta)\)에서 사인 곡선으로 어떻게 매핑되는지 확인합니다.<br>
-                    아래 <strong>[영상 공간]</strong> 캔버스에 마우스로 점을 <strong>클릭</strong>하여 추가해보세요.<br>
-                    반대로 우측 <strong>[파라미터 공간]</strong> 캔버스를 클릭하면 해당하는 <strong>역변환(Inverse Transform) 직선</strong>이 영상 공간에
-                    그려집니다.</p>
-            </div>
-
-            <div class="simulation-area">
-                <div class="canvas-container">
-                    <h3>영상 공간 (Image Space)</h3>
-                    <canvas id="ht-img-canvas" width="400" height="400"></canvas>
-                    <button class="btn btn-secondary" id="ht-clear-btn">초기화</button>
-                </div>
-                <div class="canvas-container">
-                    <h3>파라미터 공간 (Parameter Space)</h3>
-                    <canvas id="ht-param-canvas" width="400" height="400"></canvas>
-                    <div class="legend">교차점이 많을수록 밝게 표시됩니다 (Accumulator)</div>
+                <div class="simulation-column">
+                    <div class="simulation-area">
+                        <div class="canvas-container">
+                            <h3>영상 공간 (Image Space)</h3>
+                            <canvas id="ht-img-canvas" width="400" height="400"></canvas>
+                            <button class="btn btn-secondary" id="ht-clear-btn">초기화</button>
+                        </div>
+                        <div class="canvas-container">
+                            <h3>파라미터 공간 (Parameter Space)</h3>
+                            <canvas id="ht-param-canvas" width="400" height="400"></canvas>
+                            <div class="legend">교차점이 많을수록 밝게 표시됩니다</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- 4. RANSAC Section (Moved to 4th) -->
+        <!-- 4. RANSAC Section -->
         <section id="sim-section-4" class="card glass">
-            <div class="card-header">
-                <h2>4. RANSAC (RANdom SAmple Consensus)</h2>
-                <div class="theory-box">
-                    <h3>[수업 내용 요약]</h3>
-                    <ul>
-                        <li><strong>RANSAC:</strong> 노이즈(Outlier)가 심하게 섞인 데이터 속에서 정상적인 데이터(Inlier)들을 찾아내어 수학적 모델(직선 등)을
-                            예측하는 기법입니다.</li>
-                        <li><strong>연산 과정:</strong>
-                            <ol>
-                                <li>무작위로 수학적 모델을 구성하기 위한 <strong>최소한의 점(직선의 경우 2개)</strong>을 뽑아 모델을 세웁니다.
-                                    <div style="text-align:center; padding:8px 0;">$$\text{직선의 방정식: } ax + by + c = 0$$
-                                    </div>
-                                </li>
-                                <li>생성된 직선과 모든 데이터 포인트 \((x_i, y_i)\) 와의 거리를 계산하여 오차 허용 범위(Threshold) 내에 있는 <strong>정상
-                                        데이터(Inlier)</strong>를 카운트합니다.
-                                    <div style="text-align:center; padding:8px 0;">$$\text{점과 직선 사이의 거리: } d = \frac{|a
-                                        x_i + b y_i + c|}{\sqrt{a^2 + b^2}} < \text{Threshold}$$</div>
-                                </li>
-                                <li>이 과정을 반복하며 가장 많은 Inlier를 포함한 모델이 <strong>최적의 모델(Best Model)</strong>로 선정됩니다.</li>
-                            </ol>
-                        </li>
-                    </ul>
+            <div class="card-content-split">
+                <div class="theory-column">
+                    <h2>4. RANSAC (RANdom SAmple Consensus)</h2>
+                    <div class="theory-box">
+                        <h3>[알고리즘 개요 및 목표]</h3>
+                        <p><strong>사용 이유:</strong> 실제 데이터에는 잘못된 매칭이나 잡음(Outliers)이 섞여 있어, 모든 데이터를 한 번에 사용하여 모델을 예측하면 결과가 크게 왜곡될 수 있습니다.</p>
+                        <p><strong>최종 목표:</strong> 오염된 데이터 속에서도 다수의 정상 데이터(Inliers)가 지지하는 <strong>가장 신뢰할 수 있는 모델</strong>을 무작위 추출과 검증을 통해 추정하는 것입니다.</p>
+                        <hr style="margin: 15px 0; border: none; border-top: 1px dashed rgba(255,255,255,0.2);">
+                        <p><strong>작동 원리:</strong></p>
+                        <ol>
+                            <li>무작위로 샘플(점 2개)을 뽑아 모델(직선) 수립</li>
+                            <li>오차 범위 내의 Inlier 개수 카운트</li>
+                            <li>반복을 통해 가장 많은 Inlier를 가진 모델 선정</li>
+                        </ol>
+                    </div>
                 </div>
-                <p>노이즈(Outlier)가 많은 환경에서 직선을 어떻게 찾아내는지 확인합니다.<br>
-                    <strong>[1회 무작위 실행]</strong> 버튼을 눌러 점을 하나씩 뽑아보거나, <strong>[자동 실행]</strong>을 통해 최적의 모델을 찾아보세요.
-                </p>
-                <div class="controls">
-                    <button class="btn btn-secondary" id="ransac-reset-btn">데이터 초기화</button>
-                    <button class="btn btn-primary" id="ransac-step-btn">1회 무작위 실행</button>
-                    <button class="btn btn-accent" id="ransac-auto-btn">자동 실행</button>
-                    <button class="btn btn-outline" id="ransac-full-btn">최종 결과 찾기</button>
-                </div>
-            </div>
-
-            <div class="simulation-area ransac-area">
-                <div class="canvas-container">
-                    <h3>RANSAC 직선 예측 과정</h3>
-                    <canvas id="ransac-canvas" width="840" height="400"></canvas>
-                </div>
-
-                <div class="stats-panel glass">
-                    <h3>현재 결과</h3>
-                    <ul>
-                        <li><strong>총 반복 횟수 (Iterations):</strong> <span id="rs-iterations">0</span> 회</li>
-                        <li><strong>현재 샘플의 Inliers:</strong> <span id="rs-current-inliers">0</span> 개</li>
-                        <li class="best-metric"><strong>최고 기록 (Best Inliers):</strong> <span
-                                id="rs-best-inliers">0</span> 개</li>
-                    </ul>
-                    <p class="status-msg" id="rs-status-msg">데이터가 초기화되었습니다. 버튼을 눌러 샘플링을 시작하세요.</p>
+                <div class="simulation-column">
+                    <div class="controls">
+                        <button class="btn btn-secondary" id="ransac-reset-btn">초기화</button>
+                        <button class="btn btn-primary" id="ransac-step-btn">1회 샘플링</button>
+                        <button class="btn btn-accent" id="ransac-auto-btn">자동 실행</button>
+                        <button class="btn btn-outline" id="ransac-full-btn">최종 결과</button>
+                    </div>
+                    <div class="simulation-area ransac-area">
+                        <div class="canvas-container">
+                            <h3>RANSAC 직선 예측 과정</h3>
+                            <canvas id="ransac-canvas" width="840" height="400"></canvas>
+                        </div>
+                        <div class="stats-panel glass">
+                            <h3>현재 결과</h3>
+                            <ul>
+                                <li><strong>반복 횟수:</strong> <span id="rs-iterations">0</span></li>
+                                <li><strong>현재 Inliers:</strong> <span id="rs-current-inliers">0</span></li>
+                                <li class="best-metric"><strong>최고 기록:</strong> <span id="rs-best-inliers">0</span></li>
+                            </ul>
+                            <p class="status-msg" id="rs-status-msg">샘플링을 시작하세요.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

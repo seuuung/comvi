@@ -19,6 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const stitchCtx = stitchCanvas.getContext('2d');
     const stitchResultArea = document.getElementById('stitchResultArea');
 
+    // 코너 개수 슬라이더 추가
+    const cornerCountSlider = document.getElementById('corner-count');
+    const cornerCountVal = document.getElementById('corner-count-val');
+    let maxCorners = parseInt(cornerCountSlider.value, 10);
+
+    cornerCountSlider.addEventListener('input', (e) => {
+        maxCorners = parseInt(e.target.value, 10);
+        cornerCountVal.innerText = maxCorners;
+        // 이미 추출된 상태라면 개수를 변경했을 때 재추출하도록 유도할 수 있습니다.
+    });
+
     let cornersA = [];
     let cornersB = [];
     let matchedPairs = []; // To store best matches for stitching
@@ -191,8 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 상위 N개 강한 코너만 선택
-        return rawCorners.sort((a, b) => b.score - a.score).slice(0, 30);
+        // 상위 N개 강한 코너만 선택 (슬라이더 값 사용)
+        return rawCorners.sort((a, b) => b.score - a.score).slice(0, maxCorners);
     }
 
     // 3. SSD 패치 매칭 헬퍼
@@ -245,10 +256,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 100);
     });
 
+    let colorIdx = 0;
+    const matchColors = [
+        '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', 
+        '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', 
+        '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e'
+    ];
+
     btnMatchPoints.addEventListener('click', () => {
         if (!isCornersFound) return;
         btnMatchPoints.disabled = true;
         matchedPairs = [];
+        colorIdx = 0;
 
         // 실제 패치 기반 SSD 매칭 수행
         const grayA = getGrayscaleData(matchCtx, IMG_A_X, IMG_Y, IMG_W, IMG_H);
@@ -278,15 +297,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 매칭 신뢰도 임계값 (매우 낮은 SSD만 통과)
             if (bestMatch && bestScore < 150000) {
-                matchedPairs.push({ ptA, ptB: bestMatch, ssd: bestScore });
+                const pairColor = matchColors[colorIdx % matchColors.length];
+                colorIdx++;
+                
+                matchedPairs.push({ ptA, ptB: bestMatch, ssd: bestScore, color: pairColor });
 
                 // 매칭선 그리기
                 matchCtx.beginPath();
                 matchCtx.moveTo(ptA.x, ptA.y);
                 matchCtx.lineTo(bestMatch.x, bestMatch.y);
-                matchCtx.strokeStyle = 'rgba(167, 139, 250, 0.7)';
-                matchCtx.lineWidth = 1.2;
+                matchCtx.strokeStyle = pairColor;
+                matchCtx.lineWidth = 1.5;
                 matchCtx.stroke();
+
+                // 양쪽 대응점 같은 색으로 덧칠하기
+                matchCtx.fillStyle = pairColor;
+                matchCtx.beginPath(); matchCtx.arc(ptA.x, ptA.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                matchCtx.beginPath(); matchCtx.arc(bestMatch.x, bestMatch.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                
+                matchCtx.strokeStyle = '#fff';
+                matchCtx.lineWidth = 1.5;
+                matchCtx.beginPath(); matchCtx.arc(ptA.x, ptA.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+                matchCtx.beginPath(); matchCtx.arc(bestMatch.x, bestMatch.y, 5, 0, Math.PI * 2); matchCtx.stroke();
             }
 
             currentIdx++;
@@ -408,17 +440,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchCtx.beginPath();
                 matchCtx.moveTo(p.ptA.x, p.ptA.y);
                 matchCtx.lineTo(p.ptB.x, p.ptB.y);
+                
+                const baseColor = p.color || 'rgba(167, 139, 250, 0.7)';
+                
                 if (hoveredPair && hoveredPair !== p) {
-                    matchCtx.strokeStyle = 'rgba(167, 139, 250, 0.1)';
+                    matchCtx.globalAlpha = 0.1;
+                    matchCtx.strokeStyle = baseColor;
                     matchCtx.lineWidth = 1;
                 } else if (hoveredPair === p) {
-                    matchCtx.strokeStyle = 'rgba(167, 139, 250, 1.0)';
+                    matchCtx.globalAlpha = 1.0;
+                    matchCtx.strokeStyle = baseColor;
                     matchCtx.lineWidth = 3;
                 } else {
-                    matchCtx.strokeStyle = 'rgba(167, 139, 250, 0.7)';
-                    matchCtx.lineWidth = 1.2;
+                    matchCtx.globalAlpha = 1.0;
+                    matchCtx.strokeStyle = baseColor;
+                    matchCtx.lineWidth = 1.5;
                 }
                 matchCtx.stroke();
+                
+                // 대응점(코너)을 매칭선과 같은 색으로 덧칠
+                matchCtx.fillStyle = baseColor;
+                matchCtx.beginPath(); matchCtx.arc(p.ptA.x, p.ptA.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                matchCtx.beginPath(); matchCtx.arc(p.ptB.x, p.ptB.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                
+                matchCtx.strokeStyle = '#fff';
+                matchCtx.lineWidth = 1.5;
+                matchCtx.beginPath(); matchCtx.arc(p.ptA.x, p.ptA.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+                matchCtx.beginPath(); matchCtx.arc(p.ptB.x, p.ptB.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+                
+                matchCtx.globalAlpha = 1.0; // 복구
             });
             matchCtx.restore();
         }
@@ -432,16 +482,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchCtx.moveTo(p.ptA.x, p.ptA.y);
                 matchCtx.lineTo(p.ptB.x, p.ptB.y);
                 if (hoveredPair && hoveredPair !== p) {
-                    matchCtx.strokeStyle = 'rgba(239, 68, 68, 0.1)';
+                    matchCtx.globalAlpha = 0.1;
+                    matchCtx.strokeStyle = 'rgba(239, 68, 68, 1.0)';
                     matchCtx.lineWidth = 1;
                 } else if (hoveredPair === p) {
+                    matchCtx.globalAlpha = 1.0;
                     matchCtx.strokeStyle = 'rgba(239, 68, 68, 1.0)';
                     matchCtx.lineWidth = 3;
                 } else {
-                    matchCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; // 은은한 빨간색 기본을 더욱 진하고 두껍게
+                    matchCtx.globalAlpha = 1.0;
+                    matchCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
                     matchCtx.lineWidth = 1.5;
                 }
                 matchCtx.stroke();
+
+                // 마커색 유지
+                const baseColor = p.color || 'rgba(167, 139, 250, 0.7)';
+                matchCtx.fillStyle = baseColor;
+                matchCtx.beginPath(); matchCtx.arc(p.ptA.x, p.ptA.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                matchCtx.beginPath(); matchCtx.arc(p.ptB.x, p.ptB.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                
+                matchCtx.strokeStyle = '#fff';
+                matchCtx.lineWidth = 1.5;
+                matchCtx.beginPath(); matchCtx.arc(p.ptA.x, p.ptA.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+                matchCtx.beginPath(); matchCtx.arc(p.ptB.x, p.ptB.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+                
+                matchCtx.globalAlpha = 1.0;
             });
             matchCtx.restore();
         }
@@ -454,16 +520,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchCtx.moveTo(p.ptA.x, p.ptA.y);
                 matchCtx.lineTo(p.ptB.x, p.ptB.y);
                 if (hoveredPair && hoveredPair !== p) {
-                    matchCtx.strokeStyle = 'rgba(16, 185, 129, 0.2)';
+                    matchCtx.globalAlpha = 0.1;
+                    matchCtx.strokeStyle = 'rgba(16, 185, 129, 1.0)';
                     matchCtx.lineWidth = 1.8;
                 } else if (hoveredPair === p) {
+                    matchCtx.globalAlpha = 1.0;
                     matchCtx.strokeStyle = 'rgba(16, 185, 129, 1.0)';
                     matchCtx.lineWidth = 3.5;
                 } else {
-                    matchCtx.strokeStyle = '#10b981'; // 뚜렷한 초록색
+                    matchCtx.globalAlpha = 1.0;
+                    matchCtx.strokeStyle = '#10b981';
                     matchCtx.lineWidth = 1.8;
                 }
                 matchCtx.stroke();
+
+                // 마커색 유지
+                const baseColor = p.color || 'rgba(167, 139, 250, 0.7)';
+                matchCtx.fillStyle = baseColor;
+                matchCtx.beginPath(); matchCtx.arc(p.ptA.x, p.ptA.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                matchCtx.beginPath(); matchCtx.arc(p.ptB.x, p.ptB.y, 5, 0, Math.PI * 2); matchCtx.fill();
+                
+                matchCtx.strokeStyle = '#fff';
+                matchCtx.lineWidth = 1.5;
+                matchCtx.beginPath(); matchCtx.arc(p.ptA.x, p.ptA.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+                matchCtx.beginPath(); matchCtx.arc(p.ptB.x, p.ptB.y, 5, 0, Math.PI * 2); matchCtx.stroke();
+
+                matchCtx.globalAlpha = 1.0;
             });
             matchCtx.restore();
         }
