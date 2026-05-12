@@ -1,0 +1,233 @@
+/* 10주차/css/style.css */
+/* 공통 CSS(common/css/style.css)를 그대로 상속받되,
+   10주차에서만 사용하는 컴포넌트만 추가 정의합니다.
+   5주차와 동일한 레이아웃 구조를 유지합니다. */
+
+/* =============================================
+   1. 컨트롤 패널 (시뮬레이션 조작부)
+   ============================================= */
+.controls,
+.control-panel {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.control-panel h3 {
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--accent, #64ffda);
+}
+
+.input-group,
+.button-group,
+.toggle-group,
+.btn-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.input-group label {
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+/* =============================================
+   2. 캔버스 영역
+   ============================================= */
+.simulation-area,
+.canvas-wrapper {
+    display: flex;
+    position: relative;
+}
+
+.canvas-container {
+    flex: 1;
+    height: 500px;
+    /* 5주차와 동일한 캔버스 높이 */
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    overflow: hidden;
+    position: relative;
+    min-width: 0;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* =============================================
+   3. 상태 패널 (캔버스 위 오버레이)
+   ============================================= */
+.stats-panel,
+.overlay-info {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: 0.75rem;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.stats-panel h3,
+.overlay-info h3 {
+    margin-top: 0;
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--accent, #64ffda);
+}
+
+.stats-panel ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.stats-panel li {
+    margin-bottom: 0.3rem;
+}
+
+/* =============================================
+   4. 버튼 스타일
+   ============================================= */
+.btn,
+.primary-btn,
+.action-btn,
+.danger-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.primary-btn {
+    background: #64ffda;
+    color: #0a192f;
+}
+
+.action-btn {
+    background: rgba(100, 255, 218, 0.1);
+    border: 1px solid #64ffda;
+    color: #64ffda;
+}
+
+.danger-btn {
+    background: rgba(255, 100, 100, 0.1);
+    border: 1px solid #ff6464;
+    color: #ff6464;
+}
+
+.btn:hover,
+.primary-btn:hover,
+.action-btn:hover,
+.danger-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+}
+
+/* =============================================
+   5. Session1 시뮬레이션 레이아웃
+   공통 CSS의 canvas-container를 완전히 오버라이드
+   ============================================= */
+
+/* BST: 수직선(위) + 트리(아래) 세로 배치 */
+.bst-sim-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px;
+    width: 100%;
+}
+
+.simulation-area .bst-numberline-wrap {
+    flex: none !important;
+    width: 100% !important;
+    height: 90px !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+.simulation-area .bst-numberline-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+}
+
+.simulation-area .bst-tree-wrap {
+    flex: none !important;
+    width: 100% !important;
+    height: 350px !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+.simulation-area .bst-tree-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+}
+
+/* KD: 2D공간(왼쪽) + 트리(오른쪽) 가로 배치 */
+.kd-sim-layout {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 10px;
+    width: 100%;
+    height: 350px !important;
+}
+
+.simulation-area .kd-space-wrap {
+    flex: 1 !important;
+    height: 100% !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+.simulation-area .kd-space-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+}
+
+.simulation-area .kd-tree-wrap {
+    flex: 1 !important;
+    height: 100% !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+.simulation-area .kd-tree-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+}
+
+/* 큰 화면 (1600px 이상): 캔버스 높이 확대 */
+@media (min-width: 1600px) {
+    .simulation-area .bst-tree-wrap {
+        height: 500px !important;
+    }
+
+    .kd-sim-layout {
+        height: 450px !important;
+    }
+}

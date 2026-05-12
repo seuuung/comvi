@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10주차 2차시: 최소제곱법과 RANSAC - 고급영상처리론</title>
+    <!-- 공통 CSS -->
+    <link rel="stylesheet" href="../common/css/style.css">
+    <!-- 10주차 CSS -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <!-- Navigation Bar will be loaded by js/navbar.js -->
+    <script src="../common/js/navbar.js"></script>
+
+    <header class="hero">
+        <div class="hero-content">
+            <span class="badge">제 10주차</span>
+            <h1>강인한 모델 추정 (LSQ vs RANSAC)</h1>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- ===== LSH 시뮬레이션 섹션 ===== -->
+        <section class="card glass" style="padding: 1rem; margin-bottom: 0;">
+            <div class="card-content-split">
+                <!-- 왼쪽: 이론 설명 -->
+                <div class="theory-column">
+                    <h2>1. 위치의존 해싱 (LSH)</h2>
+                    <div class="theory-box">
+                        <p><strong>일반 해싱</strong>은 충돌을 최소화하지만,
+                            <strong>위치의존 해싱(LSH)</strong>은 가까운 벡터끼리 <em>의도적으로</em> 같은 버킷에 담기도록 합니다.</p>
+                        <p>해시 함수:</p>
+                        <p style="text-align: center;">
+                            \[ h(\mathbf{x}) = \left\lfloor \frac{\mathbf{r} \cdot \mathbf{x} + b}{w} \right\rfloor \]
+                        </p>
+                        <p>여기서 \(\mathbf{r}\)은 가우시안 랜덤 벡터, \(b\)는 \([0, w)\) 랜덤 오프셋, \(w\)는 버킷 폭입니다.</p>
+                    </div>
+                    <div class="theory-box" style="margin-top: 0.8rem;">
+                        <p><strong>알고리즘 7-7 (구축):</strong></p>
+                        <ul style="padding-left: 1.2rem; margin: 0.3rem 0;">
+                            <li><strong>L</strong>개의 독립 해시 테이블 생성</li>
+                            <li>각 테이블마다 <strong>k</strong>개의 해시 함수 \(g_j = (h_1, ..., h_k)\)</li>
+                            <li>모든 점 \(\mathbf{x}_i\)를 각 테이블의 해당 버킷에 저장</li>
+                        </ul>
+                        <p><strong>알고리즘 7-8 (검색):</strong></p>
+                        <ul style="padding-left: 1.2rem; margin: 0.3rem 0;">
+                            <li>L개 테이블 모두에서 쿼리의 버킷 조사</li>
+                            <li>하나라도 같은 버킷이면 후보(Q)에 추가</li>
+                            <li>Q에서 가장 가까운 점 = 근사 최근접 이웃</li>
+                        </ul>
+                        <p class="highlight-text" style="color: #64ffda; margin-top: 0.5rem;">
+                            <strong>효과:</strong> L↑ → NN이 후보에 포함될 확률 증가 (확률 증폭)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 오른쪽: 시뮬레이션 -->
+                <div class="simulation-column">
+                    <div class="control-panel">
+                        <div class="input-group">
+                            <label for="lsh-num-hash">해시 함수 수 (k)</label>
+                            <input type="range" id="lsh-num-hash" min="1" max="3" value="1">
+                            <span id="lsh-num-hash-val">1</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="lsh-num-table">테이블 수 (L)</label>
+                            <input type="range" id="lsh-num-table" min="1" max="3" value="1">
+                            <span id="lsh-num-table-val">1</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="lsh-bucket-width">버킷 폭 (w)</label>
+                            <input type="range" id="lsh-bucket-width" min="0.5" max="2.0" step="0.1" value="1.0">
+                            <span id="lsh-bucket-width-val">1.0</span>
+                        </div>
+                        <div class="button-group">
+                            <button id="lsh-generate" class="primary-btn">데이터 생성</button>
+                            <button id="lsh-hash" class="action-btn">해시 분할</button>
+                            <button id="lsh-clear" class="danger-btn">초기화</button>
+                        </div>
+                    </div>
+
+                    <div class="canvas-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; color: #a8b2d1;">
+                        <span id="lsh-status">데이터를 생성한 후 해시 분할을 수행하세요.</span>
+                    </div>
+
+                    <div class="simulation-area">
+                        <div class="canvas-container">
+                            <canvas id="lshCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== LSQ / RANSAC 시뮬레이션 섹션 ===== -->
+        <section class="card glass" style="padding: 1rem; margin-top: 1.5rem;">
+            <!-- 핵심 상호작용 영역: 이론과 캔버스 -->
+            <div class="card-content-split">
+                <!-- 왼쪽: 이론 설명 -->
+                <div class="theory-column">
+                    <h2>2. 최소제곱법 (Least Squares)</h2>
+                    <div class="theory-box">
+                        <p>모든 데이터 포인트의 오차(잔차)의 제곱합을 최소화하는 파라미터를 찾는 방법입니다.</p>
+                        <p>
+                            \[ E = \sum_{i=1}^{n} (y_i - (mx_i + c))^2 \]
+                        </p>
+                        <p class="highlight-text" style="color: #ff6464;">
+                            <strong>한계:</strong> 단 하나의 극단적인 아웃라이어(노이즈)만 있어도 전체 모델이 크게 왜곡될 수 있습니다.
+                        </p>
+                    </div>
+
+                    <h2>3. RANSAC 알고리즘</h2>
+                    <div class="theory-box">
+                        <p>RANSAC(RANdom SAmple Consensus)은 아웃라이어가 많이 포함된 데이터셋에서 수학적 모델 파라미터를 무작위 샘플링을 통해 강인하게 추정하는
+                            기법입니다.
+                        </p>
+                        <ol style="padding-left: 1.2rem;">
+                            <li><strong>가설 설정:</strong> 모델을 추정하기 위한 최소한의 샘플을 선택해 임시 모델을 만듭니다.</li>
+                            <li><strong>검증 (Inlier 카운트):</strong> 모든 데이터에 대해 임시 모델과의 거리를 계산하고, 임계값 이내에 있는 데이터를
+                                <em>Inlier</em>로 판별합니다.</li>
+                            <li><strong>반복 및 갱신:</strong> \(N\)번 반복하여 가장 많은 Inlier를 가진 모델을 최적 모델로 채택합니다.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- 오른쪽: 컨트롤 및 캔버스 -->
+                <div class="simulation-column">
+                    <div class="control-panel">
+                        <div class="input-group">
+                            <label for="outlierRatio">아웃라이어</label>
+                            <input type="range" id="outlierRatio" min="0" max="80" value="30">
+                            <span id="outlierRatioValue">30%</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="ransacThreshold">RANSAC 임계값</label>
+                            <input type="range" id="ransacThreshold" min="5" max="50" value="15">
+                            <span id="ransacThresholdValue">15</span>
+                        </div>
+                        <div class="button-group">
+                            <button id="generateBtn" class="primary-btn">데이터 생성</button>
+                            <button id="lsqBtn" class="action-btn" style="border-color: #ff6464; color: #ff6464;">LSQ 피팅
+                                (빨강)</button>
+                            <button id="ransacBtn" class="action-btn"
+                                style="border-color: #64ffda; color: #64ffda;">RANSAC 피팅 (초록)</button>
+                            <button id="clearBtn" class="danger-btn">초기화</button>
+                        </div>
+                    </div>
+
+                    <div class="canvas-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; color: #a8b2d1;">
+                        <span id="statusMessage">점을 직접 클릭하여 추가하거나 '데이터 생성' 버튼을 누르세요.</span>
+                        <!-- 결과 캡슐 정보 -->
+                        <div style="display: flex; gap: 15px; font-size: 0.85rem; color: #a8b2d1; background: rgba(0,0,0,0.3); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                            <span><strong style="color: #ff6464; font-weight: 600;">LSQ:</strong> <span id="lsqResult" style="color: #fff;">대기 중</span></span>
+                            <span><strong style="color: #64ffda; font-weight: 600;">RANSAC:</strong> <span id="ransacResult" style="color: #fff;">대기 중</span></span>
+                        </div>
+                    </div>
+
+                    <div class="simulation-area">
+                        <div class="canvas-container">
+                            <canvas id="mainCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Built for GitHub Pages | 고급영상처리론 10주차</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/session2.js"></script>
+    <script src="js/lsh_sim.js"></script>
+</body>
+
+</html>
