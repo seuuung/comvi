@@ -357,6 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sx = mapToScreenX(d.x[0]);
             const sy = mapToScreenY(d.x[1]);
 
+            // 1. 점 그리기
             ctx.beginPath();
             if (d.y === 0) {
                 // 0은 주황 원
@@ -372,6 +373,16 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.lineWidth = 2;
             ctx.stroke();
             ctx.closePath();
+
+            // 2. 좌표 텍스트 그리기
+            ctx.font = 'bold 13px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 4;
+            // 점의 위치에 따라 텍스트 위치 조정 (기본적으로 점 위쪽)
+            ctx.fillText(`${d.x[0]}, ${d.x[1]}`, sx, sy - 18);
+            ctx.shadowBlur = 0; // 그림자 효과 초기화
         });
     }
 
