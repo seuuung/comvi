@@ -117,7 +117,21 @@
                         <div class="btn-group">
                             <button id="btn-random-points" class="btn btn-secondary">랜덤 추가</button>
                             <button id="btn-build-tree" class="btn btn-primary">트리 구축</button>
+                            <button id="btn-step-build" class="btn btn-primary" style="background: #a855f7; color: #fff;">단계별 구축</button>
                             <button id="btn-clear" class="btn btn-danger">초기화</button>
+                        </div>
+                    </div>
+
+                    <!-- 단계별 구축 컨트롤 (초기에는 숨김) -->
+                    <div id="step-build-panel" class="controls mode-controls" style="display: none;">
+                        <div class="btn-group">
+                            <button id="btn-step-prev" class="btn btn-secondary" style="padding: 0.4rem 0.8rem;">◀ 이전</button>
+                            <span id="step-info-text" style="color: #fff; font-weight: 600; font-size: 0.9rem; min-width: 90px; text-align: center;">Step 0 / 0</span>
+                            <button id="btn-step-next" class="btn btn-secondary" style="padding: 0.4rem 0.8rem;">다음 ▶</button>
+                            <button id="btn-step-all" class="btn btn-secondary" style="padding: 0.4rem 0.8rem;">전체 ▶▶</button>
+                        </div>
+                        <div id="step-desc-text" style="font-size: 0.85rem; color: #a8b2d1; padding: 4px 8px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); flex: 1; min-width: 200px;">
+                            단계별 구축을 시작하세요.
                         </div>
                     </div>
 

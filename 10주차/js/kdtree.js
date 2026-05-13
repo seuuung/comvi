@@ -8,6 +8,8 @@ class KDNode {
         this.left = left;         // KDNode
         this.right = right;       // KDNode
         this.bounds = bounds;     // {minX, maxX, minY, maxY} for visualization
+        this.buildOrder = -1;     // 구축 순서 (단계별 시각화용)
+        this.depth = 0;           // 트리 깊이
     }
 }
 
@@ -16,7 +18,11 @@ class KDNode {
  */
 class KDTree {
     constructor(points, width, height) {
+        this._buildCounter = 0;   // 구축 순서 카운터
+        this.buildSteps = [];     // 각 단계의 메타 정보 (단계별 시각화용)
+        this.totalNodes = 0;      // 전체 노드 수
         this.root = this.buildTree(points, 0, 0, width, 0, height);
+        this.totalNodes = this._buildCounter;
         this.visitedNodes = []; // For visualization
     }
 
@@ -41,6 +47,19 @@ class KDTree {
         const leftPoints = points.slice(0, medianIdx);
         const rightPoints = points.slice(medianIdx + 1);
 
+        // 구축 순서 기록 (pre-order: 루트부터 순서대로)
+        const currentOrder = this._buildCounter;
+        this.buildSteps.push({
+            order: currentOrder,
+            point: medianPoint,
+            axis: axis,
+            depth: depth,
+            bounds: { ...bounds },
+            leftCount: leftPoints.length,
+            rightCount: rightPoints.length
+        });
+        this._buildCounter++;
+
         // Recursively build children with updated bounds
         let leftBounds = { ...bounds };
         let rightBounds = { ...bounds };
@@ -56,7 +75,11 @@ class KDTree {
         const leftNode = this.buildTree(leftPoints, depth + 1, leftBounds.minX, leftBounds.maxX, leftBounds.minY, leftBounds.maxY);
         const rightNode = this.buildTree(rightPoints, depth + 1, rightBounds.minX, rightBounds.maxX, rightBounds.minY, rightBounds.maxY);
 
-        return new KDNode(medianPoint, axis, leftNode, rightNode, bounds);
+        const node = new KDNode(medianPoint, axis, leftNode, rightNode, bounds);
+        node.buildOrder = currentOrder;
+        node.depth = depth;
+
+        return node;
     }
 
     // Euclidean distance squared

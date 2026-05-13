@@ -19,6 +19,11 @@ const SPACE_RANGE = SPACE_MAX - SPACE_MIN;
 let useBBF = false;
 let tryAllowed = 5;
 
+// 단계별 구축 모드 상태
+let stepBuildMode = false;
+let currentBuildStep = -1; // -1 = 미시작, 0~N-1 = 현재 단계
+let totalBuildSteps = 0;
+
 // DOM Elements
 const btnRandom = document.getElementById('btn-random-points');
 const btnBuild = document.getElementById('btn-build-tree');
@@ -32,6 +37,15 @@ const tryAllowedVal = document.getElementById('try-allowed-val');
 const statNodeCount = document.getElementById('stat-node-count');
 const statSearchVisited = document.getElementById('stat-search-visited');
 const statLastAction = document.getElementById('stat-last-action');
+
+// 단계별 구축 UI 요소
+const btnStepBuild = document.getElementById('btn-step-build');
+const stepBuildPanel = document.getElementById('step-build-panel');
+const btnStepPrev = document.getElementById('btn-step-prev');
+const btnStepNext = document.getElementById('btn-step-next');
+const btnStepAll = document.getElementById('btn-step-all');
+const stepInfoText = document.getElementById('step-info-text');
+const stepDescText = document.getElementById('step-desc-text');
 
 // Colors
 const COLOR_NODE = '#38bdf8';
@@ -179,16 +193,21 @@ function drawGrid() {
 
 function drawTree(node) {
     if (!node) return;
+    // 단계별 모드일 때 현재 step 이하의 노드만 그림
+    if (stepBuildMode && node.buildOrder > currentBuildStep) return;
 
-    ctx.lineWidth = 1.5;
+    // 현재 단계의 노드는 강조 표시
+    const isCurrentStep = stepBuildMode && node.buildOrder === currentBuildStep;
+
+    ctx.lineWidth = isCurrentStep ? 3 : 1.5;
     if (node.axis === 0) { // Vertical split (x)
-        ctx.strokeStyle = COLOR_X_LINE;
+        ctx.strokeStyle = isCurrentStep ? 'rgba(239, 68, 68, 0.9)' : COLOR_X_LINE;
         ctx.beginPath();
         ctx.moveTo(toCanvasX(node.point.x), toCanvasY(node.bounds.minY));
         ctx.lineTo(toCanvasX(node.point.x), toCanvasY(node.bounds.maxY));
         ctx.stroke();
     } else { // Horizontal split (y)
-        ctx.strokeStyle = COLOR_Y_LINE;
+        ctx.strokeStyle = isCurrentStep ? 'rgba(34, 197, 94, 0.9)' : COLOR_Y_LINE;
         ctx.beginPath();
         ctx.moveTo(toCanvasX(node.bounds.minX), toCanvasY(node.point.y));
         ctx.lineTo(toCanvasX(node.bounds.maxX), toCanvasY(node.point.y));
@@ -251,6 +270,14 @@ function render() {
     points.forEach(p => {
         const cx = toCanvasX(p.x);
         const cy = toCanvasY(p.y);
+
+        // 단계별 모드에서 현재 단계의 중앙값 포인트 강조
+        let isCurrentStepPoint = false;
+        if (stepBuildMode && currentBuildStep >= 0 && tree && tree.buildSteps[currentBuildStep]) {
+            const sp = tree.buildSteps[currentBuildStep].point;
+            if (sp.x === p.x && sp.y === p.y) isCurrentStepPoint = true;
+        }
+
         ctx.beginPath();
         if (hoveredNode && hoveredNode.point === p) {
             ctx.arc(cx, cy, 8, 0, Math.PI * 2);
@@ -259,6 +286,20 @@ function render() {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
+        } else if (isCurrentStepPoint) {
+            // 현재 단계의 중앙값 포인트: 크게 강조
+            ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            // 좌표 라벨
+            ctx.font = 'bold 12px "Noto Sans KR", sans-serif';
+            ctx.fillStyle = '#fbbf24';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(`(${Math.round(p.x)}, ${Math.round(p.y)})`, cx + 12, cy - 8);
         } else {
             ctx.arc(cx, cy, 4, 0, Math.PI * 2);
             ctx.fillStyle = COLOR_NODE;
@@ -309,9 +350,13 @@ function render() {
 
 function drawTreeStruct(node) {
     if (!node) return;
-    const x = node.treeX, y = node.treeY;
+    // 단계별 모드일 때 현재 step 이하의 노드만 그림
+    if (stepBuildMode && node.buildOrder > currentBuildStep) return;
 
-    if (node.left) {
+    const x = node.treeX, y = node.treeY;
+    const isCurrentStep = stepBuildMode && node.buildOrder === currentBuildStep;
+
+    if (node.left && !(stepBuildMode && node.left.buildOrder > currentBuildStep)) {
         ctxTree.beginPath();
         ctxTree.moveTo(x, y);
         ctxTree.lineTo(node.left.treeX, node.left.treeY);
@@ -326,7 +371,7 @@ function drawTreeStruct(node) {
         drawTreeStruct(node.left);
     }
 
-    if (node.right) {
+    if (node.right && !(stepBuildMode && node.right.buildOrder > currentBuildStep)) {
         ctxTree.beginPath();
         ctxTree.moveTo(x, y);
         ctxTree.lineTo(node.right.treeX, node.right.treeY);
@@ -343,7 +388,14 @@ function drawTreeStruct(node) {
 
     ctxTree.beginPath();
     ctxTree.arc(x, y, 30, 0, Math.PI * 2);
-    if (hoveredNode === node) {
+    if (isCurrentStep) {
+        // 현재 단계의 노드 강조 (노란색 테두리)
+        ctxTree.fillStyle = node.axis === 0 ? COLOR_X_NODE_SOLID : COLOR_Y_NODE_SOLID;
+        ctxTree.strokeStyle = '#fbbf24';
+        ctxTree.lineWidth = 5;
+        ctxTree.shadowColor = '#fbbf24';
+        ctxTree.shadowBlur = 15;
+    } else if (hoveredNode === node) {
         ctxTree.fillStyle = COLOR_HOVER;
         ctxTree.strokeStyle = '#fff';
         ctxTree.lineWidth = 3;
@@ -352,7 +404,6 @@ function drawTreeStruct(node) {
         if (searchResult && searchResult.bestNode === node) {
             ctxTree.strokeStyle = COLOR_BEST;
             ctxTree.lineWidth = 5;
-            // 보라색 글로우 효과로 가시성 강화
             ctxTree.shadowColor = COLOR_BEST;
             ctxTree.shadowBlur = 12;
         } else if (searchResult && searchResult.visitedNodes && searchResult.visitedNodes.includes(node)) {
@@ -509,6 +560,7 @@ btnRandom.addEventListener('click', () => {
 
 btnBuild.addEventListener('click', () => {
     if (points.length === 0) return;
+    exitStepBuildMode(); // 단계별 모드 종료
     tree = new KDTree([...points], SPACE_MAX, SPACE_MAX);
     searchResult = null;
     queryPoint = null;
@@ -517,11 +569,92 @@ btnBuild.addEventListener('click', () => {
 });
 
 btnClear.addEventListener('click', () => {
+    exitStepBuildMode(); // 단계별 모드 종료
     points = [];
     tree = null;
     searchResult = null;
     queryPoint = null;
     updateStats('초기화');
+    render();
+});
+
+// =============================================
+// 단계별 구축 모드 로직
+// =============================================
+
+function exitStepBuildMode() {
+    stepBuildMode = false;
+    currentBuildStep = -1;
+    totalBuildSteps = 0;
+    if (stepBuildPanel) stepBuildPanel.style.display = 'none';
+}
+
+function updateStepUI() {
+    if (!tree) return;
+    const step = tree.buildSteps[currentBuildStep];
+    stepInfoText.textContent = `Step ${currentBuildStep + 1} / ${totalBuildSteps}`;
+    
+    if (step) {
+        const axisName = step.axis === 0 ? 'X축 (수직 분할)' : 'Y축 (수평 분할)';
+        const pt = `(${Math.round(step.point.x)}, ${Math.round(step.point.y)})`;
+        stepDescText.innerHTML = `<strong style="color:#fbbf24;">→ 깊이 ${step.depth}</strong> | `
+            + `<strong style="color:${step.axis === 0 ? '#ef4444' : '#22c55e'};">${axisName}</strong> | `
+            + `중앙값: <strong style="color:#fff;">${pt}</strong> | `
+            + `좌: ${step.leftCount}개, 우: ${step.rightCount}개`;
+    } else {
+        stepDescText.textContent = '단계별 구축을 시작하세요.';
+    }
+    
+    // 버튼 활성화/비활성화
+    btnStepPrev.disabled = currentBuildStep <= 0;
+    btnStepNext.disabled = currentBuildStep >= totalBuildSteps - 1;
+    btnStepAll.disabled = currentBuildStep >= totalBuildSteps - 1;
+    btnStepPrev.style.opacity = btnStepPrev.disabled ? '0.4' : '1';
+    btnStepNext.style.opacity = btnStepNext.disabled ? '0.4' : '1';
+    btnStepAll.style.opacity = btnStepAll.disabled ? '0.4' : '1';
+}
+
+btnStepBuild.addEventListener('click', () => {
+    if (points.length === 0) {
+        alert('먼저 [랜덤 추가] 버튼을 눌러 점을 추가해주세요.');
+        return;
+    }
+    // 트리를 구축하되 단계별 모드로 진입
+    tree = new KDTree([...points], SPACE_MAX, SPACE_MAX);
+    searchResult = null;
+    queryPoint = null;
+    
+    stepBuildMode = true;
+    totalBuildSteps = tree.totalNodes;
+    currentBuildStep = 0; // 첫 번째 노드부터 시작
+    
+    stepBuildPanel.style.display = 'flex';
+    updateStepUI();
+    updateStats(`단계별 구축 중 (1/${totalBuildSteps})`);
+    render();
+});
+
+btnStepNext.addEventListener('click', () => {
+    if (!stepBuildMode || currentBuildStep >= totalBuildSteps - 1) return;
+    currentBuildStep++;
+    updateStepUI();
+    updateStats(`단계별 구축 중 (${currentBuildStep + 1}/${totalBuildSteps})`);
+    render();
+});
+
+btnStepPrev.addEventListener('click', () => {
+    if (!stepBuildMode || currentBuildStep <= 0) return;
+    currentBuildStep--;
+    updateStepUI();
+    updateStats(`단계별 구축 중 (${currentBuildStep + 1}/${totalBuildSteps})`);
+    render();
+});
+
+btnStepAll.addEventListener('click', () => {
+    if (!stepBuildMode) return;
+    currentBuildStep = totalBuildSteps - 1;
+    updateStepUI();
+    updateStats(`단계별 구축 완료 (${totalBuildSteps}/${totalBuildSteps})`);
     render();
 });
 
