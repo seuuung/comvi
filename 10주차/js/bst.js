@@ -60,10 +60,21 @@ class BST {
             }
         }
 
+        // 방문한 노드 중 쿼리와 가장 가까운 노드를 bestNode로 선택
+        let bestNode = null;
+        let bestDist = Infinity;
+        for (const node of this.visitedNodes) {
+            const dist = Math.abs(node.value - query);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestNode = node;
+            }
+        }
+
         return {
             found: found,
             visitedNodes: this.visitedNodes,
-            bestNode: this.visitedNodes.length > 0 ? this.visitedNodes[this.visitedNodes.length - 1] : null
+            bestNode: bestNode
         };
     }
 }
