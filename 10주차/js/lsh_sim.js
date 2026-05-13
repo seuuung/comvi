@@ -19,11 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const numHashVal = document.getElementById('lsh-num-hash-val');
     const numTableSlider = document.getElementById('lsh-num-table');
     const numTableVal = document.getElementById('lsh-num-table-val');
-    const bucketWidthSlider = document.getElementById('lsh-bucket-width');
-    const bucketWidthVal = document.getElementById('lsh-bucket-width-val');
+    const intervalWidthSlider = document.getElementById('lsh-interval-width');
+    const intervalWidthVal = document.getElementById('lsh-interval-width-val');
 
-    // 버킷 색상 팔레트
-    const BUCKET_COLORS = [
+    // 구간 색상 팔레트
+    const INTERVAL_COLORS = [
         '#ff6b6b', '#51cf66', '#339af0', '#fcc419',
         '#cc5de8', '#20c997', '#ff922b', '#748ffc',
         '#f06595', '#66d9e8', '#a9e34b', '#e599f7',
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildHashTables() {
         const k = parseInt(numHashSlider.value);   // 해시 함수 개수
         const L = parseInt(numTableSlider.value);   // 해시 테이블 개수
-        const w = parseFloat(bucketWidthSlider.value); // 버킷 폭
+        const w = parseFloat(intervalWidthSlider.value); // 구간 너비
 
         hashTables = [];
 
@@ -87,15 +87,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 해시 함수 g_j = (h1, h2, ..., hk) 구성
-            // 모든 점을 해당 주소의 통에 담기
-            const buckets = {};
+            // 모든 점을 해당 주소의 구간에 담기
+            const intervals = {};
             points.forEach(p => {
                 const key = computeHashKey(p, hashFuncs);
-                if (!buckets[key]) buckets[key] = [];
-                buckets[key].push(p);
+                if (!intervals[key]) intervals[key] = [];
+                intervals[key].push(p);
             });
 
-            hashTables.push({ hashFuncs, buckets });
+            hashTables.push({ hashFuncs, intervals });
         }
     }
 
@@ -125,11 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const table = hashTables[j];
             const key = computeHashKey(query, table.hashFuncs);
 
-            // j번째 해시 테이블에서 주소 g_j(x)인 통을 조사
-            const bucket = table.buckets[key] || [];
+            // j번째 해시 테이블에서 주소 g_j(x)인 구간을 조사
+            const interval = table.intervals[key] || [];
 
-            // 이 통에 있는 점들을 Q에 추가
-            bucket.forEach(p => {
+            // 이 구간에 있는 점들을 Q에 추가
+            interval.forEach(p => {
                 const id = `${p.x},${p.y}`;
                 if (!candidateSet.has(id)) {
                     candidateSet.add(id);
@@ -282,13 +282,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 점 그리기
     function drawPoints() {
-        // 버킷별 색상 매핑 (첫 번째 테이블 기준)
+        // 구간별 색상 매핑 (첫 번째 테이블 기준)
         let colorMap = {};
         if (hashTables.length > 0) {
             const firstTable = hashTables[0];
-            const keys = Object.keys(firstTable.buckets);
+            const keys = Object.keys(firstTable.intervals);
             keys.forEach((key, idx) => {
-                colorMap[key] = BUCKET_COLORS[idx % BUCKET_COLORS.length];
+                colorMap[key] = INTERVAL_COLORS[idx % INTERVAL_COLORS.length];
             });
         }
 
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.strokeStyle = '#fff';
                 ctx.stroke();
             } else if (hashTables.length > 0) {
-                // 해시된 점: 첫 테이블 버킷 색상
+                // 해시된 점: 첫 테이블 구간 색상
                 const key = computeHashKey(p, hashTables[0].hashFuncs);
                 ctx.arc(cx, cy, 5, 0, Math.PI * 2);
                 ctx.fillStyle = colorMap[key] || 'rgba(255,255,255,0.5)';
@@ -413,9 +413,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const L = hashTables.length;
         const k = hashTables[0].hashFuncs.length;
-        const totalBuckets = hashTables.reduce((sum, t) => sum + Object.keys(t.buckets).length, 0);
+        const totalIntervals = hashTables.reduce((sum, t) => sum + Object.keys(t.intervals).length, 0);
         document.getElementById('lsh-status').textContent =
-            `L=${L}개 테이블 × k=${k}개 해시 함수 → 총 ${totalBuckets}개 버킷. 캔버스를 클릭하여 쿼리하세요.`;
+            `L=${L}개 테이블 × k=${k}개 해시 함수 → 총 ${totalIntervals}개 구간. 캔버스를 클릭하여 쿼리하세요.`;
         render();
     });
 
@@ -468,8 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
     numTableSlider.addEventListener('input', (e) => {
         numTableVal.textContent = e.target.value;
     });
-    bucketWidthSlider.addEventListener('input', (e) => {
-        bucketWidthVal.textContent = parseFloat(e.target.value).toFixed(1);
+    intervalWidthSlider.addEventListener('input', (e) => {
+        intervalWidthVal.textContent = parseFloat(e.target.value).toFixed(1);
     });
 
     setTimeout(resizeCanvas, 100);

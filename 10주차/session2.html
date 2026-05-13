@@ -33,24 +33,25 @@
                     <h2>1. 위치의존 해싱 (LSH)</h2>
                     <div class="theory-box">
                         <p><strong>일반 해싱</strong>은 충돌을 최소화하지만,
-                            <strong>위치의존 해싱(LSH)</strong>은 가까운 벡터끼리 <em>의도적으로</em> 같은 버킷에 담기도록 합니다.</p>
+                            <strong>위치의존 해싱(LSH)</strong>은 가까운 벡터끼리 <em>의도적으로</em> 같은 구간에 담기도록 합니다.
+                        </p>
                         <p>해시 함수:</p>
                         <p style="text-align: center;">
                             \[ h(\mathbf{x}) = \left\lfloor \frac{\mathbf{r} \cdot \mathbf{x} + b}{w} \right\rfloor \]
                         </p>
-                        <p>여기서 \(\mathbf{r}\)은 가우시안 랜덤 벡터, \(b\)는 \([0, w)\) 랜덤 오프셋, \(w\)는 버킷 폭입니다.</p>
+                        <p>여기서 \(\mathbf{r}\)은 가우시안 랜덤 벡터, \(b\)는 \([0, w)\) 랜덤 오프셋, \(w\)는 구간 너비입니다.</p>
                     </div>
                     <div class="theory-box" style="margin-top: 0.8rem;">
                         <p><strong>알고리즘 7-7 (구축):</strong></p>
                         <ul style="padding-left: 1.2rem; margin: 0.3rem 0;">
                             <li><strong>L</strong>개의 독립 해시 테이블 생성</li>
                             <li>각 테이블마다 <strong>k</strong>개의 해시 함수 \(g_j = (h_1, ..., h_k)\)</li>
-                            <li>모든 점 \(\mathbf{x}_i\)를 각 테이블의 해당 버킷에 저장</li>
+                            <li>모든 점 \(\mathbf{x}_i\)를 각 테이블의 해당 구간에 저장</li>
                         </ul>
                         <p><strong>알고리즘 7-8 (검색):</strong></p>
                         <ul style="padding-left: 1.2rem; margin: 0.3rem 0;">
-                            <li>L개 테이블 모두에서 쿼리의 버킷 조사</li>
-                            <li>하나라도 같은 버킷이면 후보(Q)에 추가</li>
+                            <li>L개 테이블 모두에서 쿼리의 구간 조사</li>
+                            <li>하나라도 같은 구간이면 후보(Q)에 추가</li>
                             <li>Q에서 가장 가까운 점 = 근사 최근접 이웃</li>
                         </ul>
                         <p class="highlight-text" style="color: #64ffda; margin-top: 0.5rem;">
@@ -73,9 +74,9 @@
                             <span id="lsh-num-table-val">1</span>
                         </div>
                         <div class="input-group">
-                            <label for="lsh-bucket-width">버킷 폭 (w)</label>
-                            <input type="range" id="lsh-bucket-width" min="0.5" max="2.0" step="0.1" value="1.0">
-                            <span id="lsh-bucket-width-val">1.0</span>
+                            <label for="lsh-interval-width">구간 너비 (w)</label>
+                            <input type="range" id="lsh-interval-width" min="0.5" max="2.0" step="0.1" value="1.0">
+                            <span id="lsh-interval-width-val">1.0</span>
                         </div>
                         <div class="button-group">
                             <button id="lsh-generate" class="primary-btn">데이터 생성</button>
@@ -84,7 +85,8 @@
                         </div>
                     </div>
 
-                    <div class="canvas-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; color: #a8b2d1;">
+                    <div class="canvas-header"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; color: #a8b2d1;">
                         <span id="lsh-status">데이터를 생성한 후 해시 분할을 수행하세요.</span>
                     </div>
 
@@ -107,7 +109,7 @@
                     <div class="theory-box">
                         <p>모든 데이터 포인트의 오차(잔차)의 제곱합을 최소화하는 파라미터를 찾는 방법입니다.</p>
                         <p>
-                            \[ E = \sum_{i=1}^{n} (y_i - (mx_i + c))^2 \]
+                            \[ \sum_{i=1}^n \| \mathbf{x}_i - \mathbf{y}_i \|^2 \]
                         </p>
                         <p class="highlight-text" style="color: #ff6464;">
                             <strong>한계:</strong> 단 하나의 극단적인 아웃라이어(노이즈)만 있어도 전체 모델이 크게 왜곡될 수 있습니다.
@@ -122,7 +124,8 @@
                         <ol style="padding-left: 1.2rem;">
                             <li><strong>가설 설정:</strong> 모델을 추정하기 위한 최소한의 샘플을 선택해 임시 모델을 만듭니다.</li>
                             <li><strong>검증 (Inlier 카운트):</strong> 모든 데이터에 대해 임시 모델과의 거리를 계산하고, 임계값 이내에 있는 데이터를
-                                <em>Inlier</em>로 판별합니다.</li>
+                                <em>Inlier</em>로 판별합니다.
+                            </li>
                             <li><strong>반복 및 갱신:</strong> \(N\)번 반복하여 가장 많은 Inlier를 가진 모델을 최적 모델로 채택합니다.</li>
                         </ol>
                     </div>
@@ -141,6 +144,20 @@
                             <input type="range" id="ransacThreshold" min="5" max="50" value="15">
                             <span id="ransacThresholdValue">15</span>
                         </div>
+                        <div class="input-group" style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                            <label style="color: #64ffda;">비교 시나리오 선택</label>
+                            <div class="button-group" style="flex-direction: column; gap: 8px; align-items: stretch;">
+                                <button id="scenarioIdealBtn" class="action-btn" style="font-size: 0.85rem; padding: 8px 12px; text-align: left;">
+                                    🎯 센서 보정 (LSM 최적 상황)
+                                </button>
+                                <button id="scenarioOutlierBtn" class="action-btn" style="font-size: 0.85rem; padding: 8px 12px; text-align: left;">
+                                    📶 WiFi CSI / 특징점 매칭 (RANSAC 필수)
+                                </button>
+                            </div>
+                        </div>
+                        <div id="scenario-desc" class="glass" style="margin-top: 10px; padding: 12px; font-size: 0.85rem; color: #a8b2d1; border-left: 3px solid var(--primary-color); display: none;">
+                            <!-- 시나리오 설명이 여기에 동적으로 표시됩니다 -->
+                        </div>
                         <div class="button-group">
                             <button id="generateBtn" class="primary-btn">데이터 생성</button>
                             <button id="lsqBtn" class="action-btn" style="border-color: #ff6464; color: #ff6464;">LSQ 피팅
@@ -151,12 +168,16 @@
                         </div>
                     </div>
 
-                    <div class="canvas-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; color: #a8b2d1;">
+                    <div class="canvas-header"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; color: #a8b2d1;">
                         <span id="statusMessage">점을 직접 클릭하여 추가하거나 '데이터 생성' 버튼을 누르세요.</span>
                         <!-- 결과 캡슐 정보 -->
-                        <div style="display: flex; gap: 15px; font-size: 0.85rem; color: #a8b2d1; background: rgba(0,0,0,0.3); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                            <span><strong style="color: #ff6464; font-weight: 600;">LSQ:</strong> <span id="lsqResult" style="color: #fff;">대기 중</span></span>
-                            <span><strong style="color: #64ffda; font-weight: 600;">RANSAC:</strong> <span id="ransacResult" style="color: #fff;">대기 중</span></span>
+                        <div
+                            style="display: flex; gap: 15px; font-size: 0.85rem; color: #a8b2d1; background: rgba(0,0,0,0.3); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                            <span><strong style="color: #ff6464; font-weight: 600;">LSQ:</strong> <span id="lsqResult"
+                                    style="color: #fff;">대기 중</span></span>
+                            <span><strong style="color: #64ffda; font-weight: 600;">RANSAC:</strong> <span
+                                    id="ransacResult" style="color: #fff;">대기 중</span></span>
                         </div>
                     </div>
 

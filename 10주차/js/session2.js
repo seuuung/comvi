@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
-    
+
     let points = [];
     let lsqLine = null;
     let ransacLine = null;
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const outlierRatioValue = document.getElementById('outlierRatioValue');
     const ransacThresholdSlider = document.getElementById('ransacThreshold');
     const ransacThresholdValue = document.getElementById('ransacThresholdValue');
-    
+
     const statusMessage = document.getElementById('statusMessage');
     const lsqResultText = document.getElementById('lsqResult');
     const ransacResultText = document.getElementById('ransacResult');
@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         draw();
     }
     window.addEventListener('resize', resizeCanvas);
-    
+
     // Initial UI Setup
     outlierRatioSlider.addEventListener('input', (e) => {
         outlierRatioValue.textContent = e.target.value + '%';
@@ -44,20 +44,62 @@ document.addEventListener('DOMContentLoaded', () => {
         const scaleY = canvas.height / rect.height;
         const x = (e.clientX - rect.left) * scaleX;
         const y = (e.clientY - rect.top) * scaleY;
-        points.push({x, y});
+        points.push({ x, y });
         draw();
     });
 
     document.getElementById('generateBtn').addEventListener('click', generateData);
     document.getElementById('lsqBtn').addEventListener('click', fitLSQ);
     document.getElementById('ransacBtn').addEventListener('click', fitRANSAC);
+    const scenarioDesc = document.getElementById('scenario-desc');
+
     document.getElementById('clearBtn').addEventListener('click', () => {
         points = [];
         lsqLine = null;
         ransacLine = null;
         ransacInliers = [];
         updateStatus("초기화되었습니다.", "대기 중", "대기 중");
+        if (scenarioDesc) scenarioDesc.style.display = 'none';
         draw();
+    });
+
+    // 시나리오 1: 센서 보정 (Sensor Calibration) - LSM 최적
+    document.getElementById('scenarioIdealBtn').addEventListener('click', () => {
+        outlierRatioSlider.value = 5;
+        outlierRatioValue.textContent = '5%';
+        generateData();
+        fitLSQ();
+        fitRANSAC();
+        
+        if (scenarioDesc) {
+            scenarioDesc.style.display = 'block';
+            scenarioDesc.innerHTML = `
+                <strong>🎯 시나리오: 센서 보정 (Calibration)</strong><br>
+                통제된 환경에서 센서의 실제값과 측정값 사이의 관계를 파악합니다. 아웃라이어가 거의 없으므로 
+                <span style="color:var(--secondary-color)">LSM(최소제곱법)</span>이 계산량 대비 매우 효율적이며 RANSAC과 결과가 거의 일치합니다.
+            `;
+        }
+        statusMessage.textContent = "센서 보정 상황: LSM이 빠르고 정확하게 모델을 추정합니다.";
+    });
+
+    // 시나리오 2: WiFi CSI / 특징점 매칭 - RANSAC 필수
+    document.getElementById('scenarioOutlierBtn').addEventListener('click', () => {
+        outlierRatioSlider.value = 45;
+        outlierRatioValue.textContent = '45%';
+        generateData();
+        fitLSQ();
+        fitRANSAC();
+
+        if (scenarioDesc) {
+            scenarioDesc.style.display = 'block';
+            scenarioDesc.innerHTML = `
+                <strong>📶 시나리오: WiFi CSI / 특징점 매칭</strong><br>
+                멀티패스 간섭이나 잘못된 매칭으로 인해 '가짜 정보'가 많이 섞인 상황입니다. 
+                <span style="color:#ff6464;">LSM</span>은 아웃라이어에 의해 크게 왜곡되지만, 
+                <span style="color:var(--primary-color)">RANSAC</span>은 이를 무시하고 진짜 신호 경향성을 찾아냅니다.
+            `;
+        }
+        statusMessage.textContent = "현실 세계 상황: RANSAC이 아웃라이어를 제거하고 강건한 추정을 수행합니다.";
     });
 
     // 데이터 무작위 생성
@@ -84,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const t = (Math.random() - 0.5) * Math.min(canvas.width, canvas.height) * 0.8;
             const noiseX = (Math.random() - 0.5) * 15;
             const noiseY = (Math.random() - 0.5) * 15;
-            
+
             points.push({
                 x: cx + dx * t + noiseX,
                 y: cy + dy * t + noiseY
@@ -142,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 정규화
-        const mag = Math.sqrt(dirX*dirX + dirY*dirY);
+        const mag = Math.sqrt(dirX * dirX + dirY * dirY);
         if (mag > 0) {
             dirX /= mag;
             dirY /= mag;
@@ -164,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const iterations = 1000;
         const threshold = parseInt(ransacThresholdSlider.value);
-        
+
         let bestInliers = [];
         let bestLine = null;
 
@@ -182,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 방향 벡터 계산
             let dirX = p2.x - p1.x;
             let dirY = p2.y - p1.y;
-            const mag = Math.sqrt(dirX*dirX + dirY*dirY);
+            const mag = Math.sqrt(dirX * dirX + dirY * dirY);
             if (mag === 0) continue;
             dirX /= mag;
             dirY /= mag;
@@ -230,10 +272,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const trace = covXX + covYY;
             const det = covXX * covYY - covXY * covXY;
             const lambda1 = (trace + Math.sqrt(trace * trace - 4 * det)) / 2;
-            
+
             let dirX = lambda1 - covYY;
             let dirY = covXY;
-            const mag = Math.sqrt(dirX*dirX + dirY*dirY);
+            const mag = Math.sqrt(dirX * dirX + dirY * dirY);
             if (mag > 0) {
                 dirX /= mag; dirY /= mag;
             } else {
@@ -257,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
         points.forEach(p => {
             // RANSAC inlier 여부에 따라 색상 다르게 표시
             const isInlier = ransacInliers.includes(p);
-            
+
             ctx.beginPath();
             ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
             if (isInlier && ransacLine) {
@@ -281,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawLine(lineObj, color, width, dashPattern) {
-        const diag = Math.sqrt(canvas.width*canvas.width + canvas.height*canvas.height);
+        const diag = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
         const p1 = {
             x: lineObj.cx - lineObj.dirX * diag,
             y: lineObj.cy - lineObj.dirY * diag
